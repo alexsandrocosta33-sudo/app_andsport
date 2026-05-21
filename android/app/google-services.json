@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "375712346134",
+    "project_id": "academiaandsport",
+    "storage_bucket": "academiaandsport.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:375712346134:android:a507a1b2c04a910b168537",
+        "android_client_info": {
+          "package_name": "andsport.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB5JdPvSbvthiV1OZbERsdNNcKUNLqy6ww"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:375712346134:android:83bd7c1ac166ae25168537",
+        "android_client_info": {
+          "package_name": "com.example.app_andsport"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB5JdPvSbvthiV1OZbERsdNNcKUNLqy6ww"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
