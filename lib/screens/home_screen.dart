@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../services/auth_service.dart';
 import '../services/workout_service.dart';
 
@@ -456,31 +456,20 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- REPRODUTOR DE VÍDEO SEGURO COM VALIDAÇÃO DE NAVEGADOR WEB ---
-  void _assistirVideo(String? url) async {
+  void _assistirVideo(String? url) {
     if (url == null || url.isEmpty || url == '---') return;
 
-    // Proteção de ambiente Web/Computador para não quebrar a aplicação
-    final platform = Theme.of(context).platform;
-    if (platform != TargetPlatform.android && platform != TargetPlatform.iOS) {
-      final Uri uri = Uri.parse(url);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-      return;
-    }
-
-    // Fluxo nativo executado no Celular Android / iOS
-    String? videoId = YoutubePlayer.convertUrlToId(url);
+    final videoId = YoutubePlayerController.convertUrlToId(url);
     if (videoId == null) return;
 
-    YoutubePlayerController playerController = YoutubePlayerController(
-      initialVideoId: videoId,
-      flags: const YoutubePlayerFlags(
-        autoPlay: true,
+    final playerController = YoutubePlayerController.fromVideoId(
+      videoId: videoId,
+      params: YoutubePlayerParams(
+        // <-- Pronto! Sem a palavra const
+        showControls: true,
+        showFullscreenButton: true,
         mute: false,
         loop: true,
-        forceHD: false,
       ),
     );
 
@@ -489,15 +478,11 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: Colors.black,
         contentPadding: EdgeInsets.zero,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            YoutubePlayer(
-              controller: playerController,
-              showVideoProgressIndicator: true,
-              progressIndicatorColor: Colors.amber,
-            ),
+            YoutubePlayer(controller: playerController),
             Container(
               color: Colors.black,
               child: Row(
@@ -505,10 +490,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   TextButton.icon(
                     style: TextButton.styleFrom(foregroundColor: Colors.amber),
-                    onPressed: () {
-                      playerController.dispose();
-                      Navigator.pop(context);
-                    },
+                    onPressed: () => Navigator.pop(context),
                     icon: const Icon(Icons.close),
                     label: const Text('Fechar Vídeo'),
                   ),
@@ -798,9 +780,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           const Row(
                             children: [
                               Icon(Icons.style, color: Colors.amber, size: 18),
-                              SizedBox(
-                                width: 6,
-                              ), // <-- CORRIGIDO AQUI O TEXTO INTRUSO
+                              SizedBox(width: 6),
                               Text(
                                 'Tabela de Preços (Cardápio)',
                                 style: TextStyle(
@@ -1417,19 +1397,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   final dados = t.data() as Map<String, dynamic>?;
                   final dadosTratados = dados ?? {};
 
-                  // COMPONENTE DE LINHA INDEPENDENTE ADAPTADO PARA O TOQUE NO ANDROID
+                  // BLINDAGEM MÁXIMA CONTRA CONFLITO DE TOQUE NO ANDROID
                   return Card(
                     color: Colors.white,
                     margin: const EdgeInsets.symmetric(
                       vertical: 4,
                       horizontal: 2,
                     ),
-                    child: Row(
-                      children: [
-                        // Bloco 1: Play isolado na Esquerda
-                        Padding(
-                          padding: const EdgeInsets.only(left: 8.0),
-                          child: IconButton(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                      child: Row(
+                        children: [
+                          // 1. Botão do Play Isolado
+                          IconButton(
                             icon: const Icon(
                               Icons.play_circle_fill,
                               color: Colors.amber,
@@ -1438,88 +1418,93 @@ class _HomeScreenState extends State<HomeScreen> {
                             onPressed: () =>
                                 _assistirVideo(dadosTratados['videoUrl']),
                           ),
-                        ),
 
-                        // Bloco 2: InkWell Central de Texto para abrir o Modal
-                        Expanded(
-                          child: InkWell(
-                            onTap: () {
-                              if (!_eProfessor) {
-                                _mostrarDetalhesExercicioAluno(dadosTratados);
-                              }
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 12.0,
-                                horizontal: 8.0,
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    dadosTratados['exercicios'] ?? 'Exercício',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
+                          // 2. Miolo do Texto com Detector Opaco (Ocupa todo o espaço e força a captura no Android)
+                          Expanded(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () {
+                                if (!_eProfessor) {
+                                  _mostrarDetalhesExercicioAluno(dadosTratados);
+                                }
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8.0,
+                                  horizontal: 4.0,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      dadosTratados['exercicios'] ??
+                                          'Exercício',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${dadosTratados['grupo'] ?? ''} | Reps: ${dadosTratados['series'] ?? ''} | Carga: ${dadosTratados['carga'] ?? ''}',
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontSize: 13,
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${dadosTratados['grupo'] ?? ''} | Reps: ${dadosTratados['series'] ?? ''} | Carga: ${dadosTratados['carga'] ?? ''}',
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 13,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
 
-                        // Bloco 3: Controles do Professor / Ícone Informativo do Aluno
-                        if (_eProfessor)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.edit,
-                                  color: Colors.orange,
-                                  size: 22,
+                          // 3. Botões da Direita (Controle Professor ou Alvo de Toque pro Aluno)
+                          if (_eProfessor)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit,
+                                    color: Colors.orange,
+                                    size: 22,
+                                  ),
+                                  onPressed: () => _abrirConfiguracaoExercicio(
+                                    dadosTratados['grupo'] ?? '',
+                                    dadosTratados['exercicios'] ?? '',
+                                    treinoId: t.id,
+                                    seriesAtual: dadosTratados['series'],
+                                    cargaAtual: dadosTratados['carga'],
+                                    videoUrlAtual: dadosTratados['videoUrl'],
+                                  ),
                                 ),
-                                onPressed: () => _abrirConfiguracaoExercicio(
-                                  dadosTratados['grupo'] ?? '',
-                                  dadosTratados['exercicios'] ?? '',
-                                  treinoId: t.id,
-                                  seriesAtual: dadosTratados['series'],
-                                  cargaAtual: dadosTratados['carga'],
-                                  videoUrlAtual: dadosTratados['videoUrl'],
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete,
+                                    color: Colors.red,
+                                    size: 22,
+                                  ),
+                                  onPressed: () =>
+                                      _workoutService.excluirTreino(
+                                        _alunoSelecionadoId!,
+                                        t.id,
+                                      ),
                                 ),
+                              ],
+                            )
+                          else
+                            // Transforma o ícone de info em botão ativo. Se o aluno clicar aqui, abre o modal 100% das vezes.
+                            IconButton(
+                              icon: const Icon(
+                                Icons.info_outline,
+                                color: Colors.blueGrey,
+                                size: 22,
                               ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.delete,
-                                  color: Colors.red,
-                                  size: 22,
-                                ),
-                                onPressed: () => _workoutService.excluirTreino(
-                                  _alunoSelecionadoId!,
-                                  t.id,
-                                ),
-                              ),
-                            ],
-                          )
-                        else
-                          const Padding(
-                            padding: EdgeInsets.only(right: 16.0),
-                            child: Icon(
-                              Icons.info_outline,
-                              color: Colors.blueGrey,
-                              size: 20,
+                              onPressed: () =>
+                                  _mostrarDetalhesExercicioAluno(dadosTratados),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                   );
                 }).toList(),
