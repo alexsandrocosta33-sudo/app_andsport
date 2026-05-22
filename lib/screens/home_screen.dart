@@ -36,11 +36,11 @@ class _HomeScreenState extends State<HomeScreen> {
   final _editSemestralController = TextEditingController();
   final _editAnualController = TextEditingController();
 
-  // CONTROLES ADICIONADOS PARA EDIÇÃO DE ALUNOEXISTENTE
+  // CONTROLES ADICIONADOS PARA EDIÇÃO DE ALUNO EXISTENTE
   final _editarNomeAlunoController = TextEditingController();
   final _editarEmailAlunoController = TextEditingController();
 
-  // Valores Locais de Backup (caso o banco esteja vazio na primeira execução)
+  // Valores Locais de Backup
   Map<String, double> _valoresPlanosCarregados = {
     'Mensal': 80.0,
     'Trimestral': 220.0,
@@ -54,7 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String? _alunoSelecionadoId;
   String? _alunoSelecionadoNome;
-  String? _alunoSelecionadoEmail; // Guardando e-mail para edição
+  String? _alunoSelecionadoEmail;
   bool _eProfessor = false;
   bool _carregandoPerfil = true;
 
@@ -62,85 +62,6 @@ class _HomeScreenState extends State<HomeScreen> {
   String _grupoSelecionadoParaNovoExercicio = 'Peito';
 
   int _abaAtualProfessor = 0;
-
-  final Map<String, List<Map<String, String>>> _bancoExercicios = {
-    'Peito': [
-      {
-        'nome': 'Supino Reto Barra',
-        'video': 'https://www.youtube.com/watch?v=sqOw2Y6u9p4',
-      },
-      {
-        'nome': 'Supino Inclinado Halteres',
-        'video': 'https://www.youtube.com/watch?v=Z1rC3TBCXvU',
-      },
-      {
-        'nome': 'Crucifixo Máquina',
-        'video': 'https://www.youtube.com/watch?v=4as_MvM8TGY',
-      },
-      {
-        'nome': 'Cross Over',
-        'video': 'https://www.youtube.com/watch?v=H75t3r_N3Uo',
-      },
-    ],
-    'Costas': [
-      {
-        'nome': 'Puxada Aberta Pulley',
-        'video': 'https://www.youtube.com/watch?v=84SgEshA6oo',
-      },
-      {
-        'nome': 'Remada Baixa Triângulo',
-        'video': 'https://www.youtube.com/watch?v=xQ_F9gO8z6E',
-      },
-      {
-        'nome': 'Pull Down Corda',
-        'video': 'https://www.youtube.com/watch?v=7_hE0tPHeLw',
-      },
-    ],
-    'Bíceps': [
-      {
-        'nome': 'Rosca Direta Barra W',
-        'video': 'https://www.youtube.com/watch?v=0wVbNkaM5IE',
-      },
-      {
-        'nome': 'Rosca Alternada Halteres',
-        'video': 'https://www.youtube.com/watch?v=sMc4nPP6b_g',
-      },
-    ],
-    'Tríceps': [
-      {
-        'nome': 'Tríceps Pulley Corda',
-        'video': 'https://www.youtube.com/watch?v=d_KInV6_E8Q',
-      },
-      {
-        'nome': 'Tríceps Testa',
-        'video': 'https://www.youtube.com/watch?v=vV77O0vscb8',
-      },
-    ],
-    'Pernas': [
-      {
-        'nome': 'Agachamento Livre',
-        'video': 'https://www.youtube.com/watch?v=68R87r9x1bM',
-      },
-      {
-        'nome': 'Leg Press 45',
-        'video': 'https://www.youtube.com/watch?v=0Enwby_n7wM',
-      },
-      {
-        'nome': 'Cadeira Extensora',
-        'video': 'https://www.youtube.com/watch?v=WcoYfSgYfIk',
-      },
-    ],
-    'Ombros': [
-      {
-        'nome': 'Desenvolvimento Halteres',
-        'video': 'https://www.youtube.com/watch?v=r0wI4O-8H88',
-      },
-      {
-        'nome': 'Elevação Lateral',
-        'video': 'https://www.youtube.com/watch?v=2K4VbE3C8m4',
-      },
-    ],
-  };
 
   @override
   void initState() {
@@ -234,7 +155,6 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  // --- FUNÇÃO PARA O PROFESSOR EDITAR NOME E EMAIL DO ALUNO ---
   void _abrirEdicaoDadosAluno() {
     if (_alunoSelecionadoId == null) return;
 
@@ -306,7 +226,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Dados do aluno atualizados com sucesso! 📝'),
+                  content: Text('Dados do aluno atualizados! 📝'),
                   backgroundColor: Colors.green,
                 ),
               );
@@ -318,7 +238,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- FUNÇÃO PARA REMOVER O ALUNO DEFINITIVAMENTE DO BANCO ---
   void _confirmarExclusaoAluno() {
     if (_alunoSelecionadoId == null) return;
 
@@ -336,7 +255,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         content: Text(
-          'Tem certeza que deseja apagar o cadastro de "$_alunoSelecionadoNome"? Todos os treinos e o histórico financeiro dele serão excluídos permanentemente.',
+          'Tem certeza que deseja apagar o cadastro de "$_alunoSelecionadoNome"?',
         ),
         actions: [
           TextButton(
@@ -353,15 +272,12 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             onPressed: () async {
               final idParaDeletar = _alunoSelecionadoId!;
-
-              // Limpa a seleção na tela primeiro para evitar erros de renderização
               setState(() {
                 _alunoSelecionadoId = null;
                 _alunoSelecionadoNome = null;
                 _alunoSelecionadoEmail = null;
               });
 
-              // Deleta o documento do aluno principal no Firestore
               await FirebaseFirestore.instance
                   .collection('usuarios')
                   .doc(idParaDeletar)
@@ -369,12 +285,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
               if (!mounted) return;
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Aluno removido do sistema.'),
-                  backgroundColor: Colors.redAccent,
-                ),
-              );
             },
             child: const Text('Excluir Definitivamente'),
           ),
@@ -423,111 +333,56 @@ class _HomeScreenState extends State<HomeScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setPopupState) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.edit_note, color: Colors.amber),
-              SizedBox(width: 8),
-              Text(
-                'Alterar Tabela Base',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Altere os valores base padrão para cada plano da sua academia:',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _editMensalController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: 'Plano Mensal (Reais)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _editTrimestralController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: 'Plano Trimestral (Reais)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _editSemestralController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: 'Plano Semestral (Reais)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _editAnualController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: 'Plano Anual (Reais)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ],
+      builder: (context) => AlertDialog(
+        title: const Text('Alterar Tabela Base'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _editMensalController,
+              decoration: const InputDecoration(labelText: 'Plano Mensal'),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text(
-                'Cancelar',
-                style: TextStyle(color: Colors.red),
-              ),
+            TextField(
+              controller: _editTrimestralController,
+              decoration: const InputDecoration(labelText: 'Plano Trimestral'),
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.amber,
-              ),
-              onPressed: () async {
-                double m = double.tryParse(_editMensalController.text) ?? 80.0;
-                double t =
-                    double.tryParse(_editTrimestralController.text) ?? 220.0;
-                double s =
-                    double.tryParse(_editSemestralController.text) ?? 420.0;
-                double a = double.tryParse(_editAnualController.text) ?? 800.0;
-
-                await FirebaseFirestore.instance
-                    .collection('configuracoes')
-                    .doc('planos')
-                    .set({
-                      'Mensal': m,
-                      'Trimestral': t,
-                      'Semestral': s,
-                      'Anual': a,
-                    }, SetOptions(merge: true));
-
-                if (!mounted) return;
-                Navigator.pop(context);
-              },
-              child: const Text('Atualizar Banco'),
+            TextField(
+              controller: _editSemestralController,
+              decoration: const InputDecoration(labelText: 'Plano Semestral'),
+            ),
+            TextField(
+              controller: _editAnualController,
+              decoration: const InputDecoration(labelText: 'Plano Anual'),
             ),
           ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await FirebaseFirestore.instance
+                  .collection('configuracoes')
+                  .doc('planos')
+                  .set({
+                    'Mensal':
+                        double.tryParse(_editMensalController.text) ?? 80.0,
+                    'Trimestral':
+                        double.tryParse(_editTrimestralController.text) ??
+                        220.0,
+                    'Semestral':
+                        double.tryParse(_editSemestralController.text) ?? 420.0,
+                    'Anual':
+                        double.tryParse(_editAnualController.text) ?? 800.0,
+                  }, SetOptions(merge: true));
+              if (!mounted) return;
+              Navigator.pop(context);
+            },
+            child: const Text('Atualizar'),
+          ),
+        ],
       ),
     );
   }
@@ -538,14 +393,10 @@ class _HomeScreenState extends State<HomeScreen> {
     Map<String, dynamic> dadosAtuais,
   ) {
     _planoSelecionadoAluno = dadosAtuais['plano'] ?? 'Mensal';
-
-    if (dadosAtuais['valorMensalidade'] != null) {
-      _mensalidadeController.text = dadosAtuais['valorMensalidade'].toString();
-    } else {
-      _mensalidadeController.text =
-          (_valoresPlanosCarregados[_planoSelecionadoAluno] ?? 80.0).toString();
-    }
-
+    _mensalidadeController.text =
+        (dadosAtuais['valorMensalidade'] ??
+                _valoresPlanosCarregados[_planoSelecionadoAluno])
+            .toString();
     _vencimentoController.text = (dadosAtuais['diaVencimento'] ?? 10)
         .toString();
     _statusPagamentoSelecionado = dadosAtuais['statusPagamento'] ?? 'Pendente';
@@ -554,215 +405,49 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setPopupState) => AlertDialog(
-          title: Text(
-            'Financeiro: $nomeAluno',
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  DropdownButtonFormField<String>(
-                    value: _planoSelecionadoAluno,
-                    decoration: const InputDecoration(
-                      labelText: 'Plano Contratado',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: _valoresPlanosCarregados.keys.map((plano) {
-                      return DropdownMenuItem(value: plano, child: Text(plano));
-                    }).toList(),
-                    onChanged: (novoPlano) {
-                      if (novoPlano != null) {
-                        setPopupState(() {
-                          _planoSelecionadoAluno = novoPlano;
-                          _mensalidadeController.text =
-                              (_valoresPlanosCarregados[novoPlano] ?? 80.0)
-                                  .toString();
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _mensalidadeController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: const InputDecoration(
-                      labelText: 'Valor Cobrado (Reais)',
-                      border: OutlineInputBorder(),
-                      prefixText: 'R\$ ',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _vencimentoController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Dia do Vencimento',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: _statusPagamentoSelecionado,
-                    decoration: const InputDecoration(
-                      labelText: 'Status Atual',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: ['Pago', 'Pendente', 'Atrasado'].map((status) {
-                      return DropdownMenuItem(
-                        value: status,
-                        child: Text(status),
-                      );
-                    }).toList(),
-                    onChanged: (val) {
-                      if (val != null)
-                        setPopupState(() => _statusPagamentoSelecionado = val);
-                    },
-                  ),
-                  const SizedBox(height: 16),
-
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    icon: const Icon(Icons.check_circle_outline),
-                    label: const Text(
-                      'Confirmar Recebimento (Dar Baixa)',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    onPressed: () async {
-                      double valor =
-                          double.tryParse(_mensalidadeController.text) ?? 0.0;
-                      int dia = int.tryParse(_vencimentoController.text) ?? 10;
-
-                      await _registrarPagamentoNoBancoInterno(
-                        alunoId: alunoId,
-                        valorPago: valor,
-                        plano: _planoSelecionadoAluno,
-                        diaVencimento: dia,
-                      );
-
-                      if (!mounted) return;
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Pagamento registrado no histórico com sucesso! ✔',
-                          ),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    },
-                  ),
-
-                  const SizedBox(height: 20),
-                  const Divider(),
-                  const Text(
-                    '📜 Histórico de Recibos Anteriores:',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                      color: Colors.blueGrey,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 150),
-                    child: StreamBuilder<QuerySnapshot>(
-                      stream: FirebaseFirestore.instance
-                          .collection('usuarios')
-                          .doc(alunoId)
-                          .collection('pagamentos')
-                          .orderBy('dataPagamento', descending: true)
-                          .snapshots(),
-                      builder: (context, histSnapshot) {
-                        if (!histSnapshot.hasData)
-                          return const Center(
-                            child: LinearProgressIndicator(color: Colors.amber),
-                          );
-                        final recibos = histSnapshot.data!.docs;
-                        if (recibos.isEmpty) {
-                          return const Text(
-                            'Nenhum pagamento registrado no histórico ainda.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontStyle: FontStyle.italic,
-                              color: Colors.grey,
-                            ),
-                          );
-                        }
-                        return ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: recibos.length,
-                          itemBuilder: (context, hIndex) {
-                            final rData =
-                                recibos[hIndex].data() as Map<String, dynamic>;
-                            return ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              leading: const Icon(
-                                Icons.receipt_long,
-                                color: Colors.green,
-                                size: 20,
-                              ),
-                              title: Text(
-                                'Ref: ${rData['mesReferencia'] ?? '---'} (${rData['plano'] ?? 'Mensal'})',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              subtitle: Text(
-                                'Pago: R\$ ${(rData['valorPago'] ?? 0.0).toStringAsFixed(2)}',
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ],
+          title: Text('Financeiro: $nomeAluno'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                value: _planoSelecionadoAluno,
+                items: _valoresPlanosCarregados.keys
+                    .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+                    .toList(),
+                onChanged: (v) => setPopupState(() {
+                  _planoSelecionadoAluno = v!;
+                  _mensalidadeController.text = _valoresPlanosCarregados[v]
+                      .toString();
+                }),
               ),
-            ),
+              TextField(
+                controller: _mensalidadeController,
+                decoration: const InputDecoration(labelText: 'Valor'),
+              ),
+              TextField(
+                controller: _vencimentoController,
+                decoration: const InputDecoration(labelText: 'Vencimento'),
+              ),
+            ],
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text(
-                'Fechar',
-                style: TextStyle(color: Colors.black),
-              ),
-            ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.amber,
-              ),
               onPressed: () async {
-                double valor =
-                    double.tryParse(_mensalidadeController.text) ?? 0.0;
-                int dia = int.tryParse(_vencimentoController.text) ?? 10;
-
                 await FirebaseFirestore.instance
                     .collection('usuarios')
                     .doc(alunoId)
                     .update({
-                      'valorMensalidade': valor,
-                      'diaVencimento': dia,
+                      'valorMensalidade':
+                          double.tryParse(_mensalidadeController.text) ?? 0.0,
+                      'diaVencimento':
+                          int.tryParse(_vencimentoController.text) ?? 10,
                       'statusPagamento': _statusPagamentoSelecionado,
                       'plano': _planoSelecionadoAluno,
                     });
                 if (!mounted) return;
                 Navigator.pop(context);
               },
-              child: const Text('Salvar Alterações'),
+              child: const Text('Salvar'),
             ),
           ],
         ),
@@ -773,27 +458,40 @@ class _HomeScreenState extends State<HomeScreen> {
   void _assistirVideo(String? url) async {
     if (url == null || url.isEmpty || url == '---') return;
     final Uri uri = Uri.parse(url);
-    if (await canLaunchUrl(uri))
+    if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
-  void _adicionarExercicioAoCardapio() {
+  void _adicionarExercicioAoCardapio() async {
     String nomeExercicio = _novoExercicioCardapioController.text.trim();
+    String linkVideo = _videoUrlController.text.trim();
+
     if (nomeExercicio.isEmpty) return;
-    setState(() {
-      _bancoExercicios[_grupoSelecionadoParaNovoExercicio]!.add({
-        'nome': nomeExercicio,
-        'video': '---',
-      });
-      _novoExercicioCardapioController.clear();
+
+    await FirebaseFirestore.instance.collection('exercicios').add({
+      'nome': nomeExercicio,
+      'grupo': _grupoSelecionadoParaNovoExercicio,
+      'videoUrl': linkVideo.isEmpty ? '---' : linkVideo,
+      'criadoEm': FieldValue.serverTimestamp(),
     });
+
+    _novoExercicioCardapioController.clear();
+    _videoUrlController.clear();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Exercício e vídeo salvos no Firestore com sucesso! ✔'),
+        backgroundColor: Colors.green,
+      ),
+    );
   }
 
-  void _removerExercicioDoCardapio(
-    String group,
-    Map<String, String> exercicioMap,
-  ) {
-    setState(() => _bancoExercicios[group]!.remove(exercicioMap));
+  void _removerExercicioDoCardapio(String docId) async {
+    await FirebaseFirestore.instance
+        .collection('exercicios')
+        .doc(docId)
+        .delete();
   }
 
   void _abrirConfiguracaoExercicio(
@@ -825,19 +523,16 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text('Exercício: $exercicio'),
-            const SizedBox(height: 8),
             TextField(
               controller: _seriesController,
               decoration: const InputDecoration(
                 labelText: 'Séries x Repetições',
               ),
             ),
-            const SizedBox(height: 8),
             TextField(
               controller: _cargaController,
               decoration: const InputDecoration(labelText: 'Carga (kg)'),
             ),
-            const SizedBox(height: 8),
             TextField(
               controller: _videoUrlController,
               decoration: const InputDecoration(labelText: 'Link do Vídeo'),
@@ -862,15 +557,87 @@ class _HomeScreenState extends State<HomeScreen> {
                     : '${_cargaController.text} kg',
                 videoUrl: _videoUrlController.text,
               );
-              if (treinoId != null)
+              if (treinoId != null) {
                 await _workoutService.excluirTreino(
                   _alunoSelecionadoId!,
                   treinoId,
                 );
+              }
+              if (!mounted) return;
               Navigator.pop(context);
             },
             child: const Text('Adicionar'),
           ),
+        ],
+      ),
+    );
+  }
+
+  // --- NOVA FUNÇÃO ADICIONADA: ABRE OS DETALHES DO EXERCÍCIO PARA O ALUNO ---
+  void _mostrarDetalhesExercicioAluno(Map<String, dynamic> dados) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.fitness_center, color: Colors.amber),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                dados['exercicios'] ?? 'Exercício',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Grupo Muscular: ${dados['grupo'] ?? '---'}',
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Séries e Repetições: ${dados['series'] ?? '---'}',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Carga Configurada: ${dados['carga'] ?? '---'}',
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.blueAccent,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fechar', style: TextStyle(color: Colors.black)),
+          ),
+          if (dados['videoUrl'] != null &&
+              dados['videoUrl'] != '---' &&
+              dados['videoUrl'].toString().isNotEmpty)
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.amber,
+              ),
+              onPressed: () {
+                Navigator.pop(context);
+                _assistirVideo(dados['videoUrl']);
+              },
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('Ver Execução'),
+            ),
         ],
       ),
     );
@@ -1131,7 +898,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
               const SizedBox(height: 8),
-
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -1219,9 +985,6 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    // =========================================================================
-    // ABA DE TREINOS COM EXPANSÃO PARA EDITAR E EXCLUIR ALUNOS
-    // =========================================================================
     Widget _construirAbaTreinos() {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1267,10 +1030,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 12),
                     ElevatedButton(
                       onPressed: _matricularNovoAluno,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        foregroundColor: Colors.amber,
-                      ),
                       child: const Text('Confirmar Matrícula'),
                     ),
                   ],
@@ -1284,8 +1043,6 @@ class _HomeScreenState extends State<HomeScreen> {
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 6),
-
-          // ROW REESTRUTURADO DO DROPDOWN COM BOTÕES DE EDIÇÃO E EXCLUSÃO
           Row(
             children: [
               Expanded(
@@ -1345,17 +1102,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-              // BOTÕES EXCLUSIVOS DO PROFESSOR CASO ALGUM ALUNO ESTEJA SELECIONADO
               if (_alunoSelecionadoId != null) ...[
                 const SizedBox(width: 8),
                 IconButton(
                   icon: const Icon(Icons.edit, color: Colors.orange),
-                  tooltip: 'Editar nome/email do aluno',
                   onPressed: _abrirEdicaoDadosAluno,
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete_forever, color: Colors.red),
-                  tooltip: 'Excluir aluno do sistema',
                   onPressed: _confirmarExclusaoAluno,
                 ),
               ],
@@ -1371,7 +1125,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Text(
-                      '➕ Cadastrar Novo Exercício no Cardápio:',
+                      '➕ Cadastrar Novo Exercício no Firestore:',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -1392,14 +1146,22 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: DropdownButtonHideUnderline(
                               child: DropdownButton<String>(
                                 value: _grupoSelecionadoParaNovoExercicio,
-                                items: _bancoExercicios.keys
-                                    .map(
-                                      (g) => DropdownMenuItem(
-                                        value: g,
-                                        child: Text(g),
-                                      ),
-                                    )
-                                    .toList(),
+                                items:
+                                    [
+                                          'Peito',
+                                          'Costas',
+                                          'Bíceps',
+                                          'Tríceps',
+                                          'Pernas',
+                                          'Ombros',
+                                        ]
+                                        .map(
+                                          (g) => DropdownMenuItem(
+                                            value: g,
+                                            child: Text(g),
+                                          ),
+                                        )
+                                        .toList(),
                                 onChanged: (v) => setState(
                                   () => _grupoSelecionadoParaNovoExercicio = v!,
                                 ),
@@ -1415,26 +1177,36 @@ class _HomeScreenState extends State<HomeScreen> {
                             decoration: const InputDecoration(
                               labelText: 'Nome do Exercício',
                               border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 8,
-                              ),
                               fillColor: Colors.white,
                               filled: true,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            foregroundColor: Colors.amber,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                          ),
-                          onPressed: _adicionarExercicioAoCardapio,
-                          child: const Icon(Icons.add),
-                        ),
                       ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _videoUrlController,
+                      decoration: const InputDecoration(
+                        labelText: 'Link do Vídeo do YouTube (Opcional)',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(
+                          Icons.video_library,
+                          color: Colors.red,
+                        ),
+                        fillColor: Colors.white,
+                        filled: true,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.black,
+                        foregroundColor: Colors.amber,
+                      ),
+                      onPressed: _adicionarExercicioAoCardapio,
+                      icon: const Icon(Icons.save),
+                      label: const Text('Salvar no Banco de Dados'),
                     ),
                   ],
                 ),
@@ -1442,45 +1214,76 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 16),
             const Text(
-              '📋 Cardápio de Exercícios (Clique para Adicionar/Editar):',
+              '📋 Cardápio de Exercícios Dinâmico (Firestore):',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             ),
             const SizedBox(height: 8),
+
             Column(
-              children: _bancoExercicios.keys.map((grupo) {
-                return Card(
-                  margin: const EdgeInsets.symmetric(vertical: 6),
-                  color: Colors.white,
-                  child: ExpansionTile(
-                    title: Text(
-                      'Treino de $grupo',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    children: _bancoExercicios[grupo]!.map((item) {
-                      return ListTile(
-                        title: Text(item['nome']!),
-                        leading: IconButton(
-                          icon: const Icon(
-                            Icons.delete_outline,
-                            color: Colors.red,
-                          ),
-                          onPressed: () =>
-                              _removerExercicioDoCardapio(grupo, item),
-                        ),
-                        trailing: const Icon(
-                          Icons.add_circle,
-                          color: Colors.amber,
-                        ),
-                        onTap: () => _abrirConfiguracaoExercicio(
-                          grupo,
-                          item['nome']!,
-                          videoUrlAtual: item['video'],
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                );
-              }).toList(),
+              children:
+                  [
+                    'Peito',
+                    'Costas',
+                    'Bíceps',
+                    'Tríceps',
+                    'Pernas',
+                    'Ombros',
+                  ].map((grupoNome) {
+                    return Card(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      color: Colors.white,
+                      child: StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('exercicios')
+                            .where('grupo', isEqualTo: grupoNome)
+                            .snapshots(),
+                        builder: (context, exSnapshot) {
+                          if (!exSnapshot.hasData)
+                            return const LinearProgressIndicator(
+                              color: Colors.amber,
+                            );
+                          final itensBanco = exSnapshot.data!.docs;
+
+                          return ExpansionTile(
+                            title: Text(
+                              'Treino de $grupoNome (${itensBanco.length})',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            children: itensBanco.map<Widget>((docEx) {
+                              final item = docEx.data() as Map<String, dynamic>;
+                              return ListTile(
+                                title: Text(item['nome'] ?? ''),
+                                subtitle: Text(
+                                  'Vídeo: ${item['videoUrl'] ?? '---'}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                leading: IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.red,
+                                  ),
+                                  onPressed: () =>
+                                      _removerExercicioDoCardapio(docEx.id),
+                                ),
+                                trailing: const Icon(
+                                  Icons.add_circle,
+                                  color: Colors.amber,
+                                ),
+                                onTap: () => _abrirConfiguracaoExercicio(
+                                  grupoNome,
+                                  item['nome'] ?? '',
+                                  videoUrlAtual: item['videoUrl'],
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        },
+                      ),
+                    );
+                  }).toList(),
             ),
           ],
         ],
@@ -1549,9 +1352,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 return const Center(
                   child: Text('Nenhum exercício cadastrado nesta série.'),
                 );
+
               return Column(
                 children: treinos.map((t) {
                   final dados = t.data() as Map<String, dynamic>?;
+                  final dadosTratados = dados ?? {};
+
                   return Card(
                     color: Colors.white,
                     child: ListTile(
@@ -1561,14 +1367,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           color: Colors.amber,
                           size: 34,
                         ),
-                        onPressed: () => _assistirVideo(dados?['videoUrl']),
+                        onPressed: () =>
+                            _assistirVideo(dadosTratados['videoUrl']),
                       ),
                       title: Text(
-                        dados?['exercicios'] ?? 'Exercício',
+                        dadosTratados['exercicios'] ?? 'Exercício',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       subtitle: Text(
-                        '${dados?['grupo'] ?? ''} | Séries: ${dados?['series'] ?? ''} | Carga: ${dados?['carga'] ?? ''}',
+                        '${dadosTratados['grupo'] ?? ''} | Séries: ${dadosTratados['series'] ?? ''} | Carga: ${dadosTratados['carga'] ?? ''}',
                       ),
                       trailing: _eProfessor
                           ? Row(
@@ -1580,12 +1387,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                     color: Colors.orange,
                                   ),
                                   onPressed: () => _abrirConfiguracaoExercicio(
-                                    dados?['grupo'] ?? '',
-                                    dados?['exercicios'] ?? '',
+                                    dadosTratados['grupo'] ?? '',
+                                    dadosTratados['exercicios'] ?? '',
                                     treinoId: t.id,
-                                    seriesAtual: dados?['series'],
-                                    cargaAtual: dados?['carga'],
-                                    videoUrlAtual: dados?['videoUrl'],
+                                    seriesAtual: dadosTratados['series'],
+                                    cargaAtual: dadosTratados['carga'],
+                                    videoUrlAtual: dadosTratados['videoUrl'],
                                   ),
                                 ),
                                 IconButton(
@@ -1601,7 +1408,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ],
                             )
-                          : const Icon(Icons.fitness_center),
+                          : const Icon(
+                              Icons.info_outline,
+                              color: Colors.blueGrey,
+                            ), // Ícone amigável pro aluno saber que dá pra clicar
+                      // === ATUALIZAÇÃO SUCESSO AQUI: QUANDO O ALUNO CLICA, ABRE O POPUP ===
+                      onTap: () {
+                        if (!_eProfessor) {
+                          _mostrarDetalhesExercicioAluno(dadosTratados);
+                        }
+                      },
                     ),
                   );
                 }).toList(),
