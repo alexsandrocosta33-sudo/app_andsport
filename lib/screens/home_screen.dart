@@ -573,7 +573,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- NOVA FUNÇÃO ADICIONADA: ABRE OS DETALHES DO EXERCÍCIO PARA O ALUNO ---
   void _mostrarDetalhesExercicioAluno(Map<String, dynamic> dados) {
     showDialog(
       context: context,
@@ -1358,66 +1357,71 @@ class _HomeScreenState extends State<HomeScreen> {
                   final dados = t.data() as Map<String, dynamic>?;
                   final dadosTratados = dados ?? {};
 
+                  // BLINDAGEM DE CLIQUE: Usando InkWell para forçar o Card inteiro do aluno a responder ao toque
                   return Card(
                     color: Colors.white,
-                    child: ListTile(
-                      leading: IconButton(
-                        icon: const Icon(
-                          Icons.play_circle_fill,
-                          color: Colors.amber,
-                          size: 34,
-                        ),
-                        onPressed: () =>
-                            _assistirVideo(dadosTratados['videoUrl']),
-                      ),
-                      title: Text(
-                        dadosTratados['exercicios'] ?? 'Exercício',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text(
-                        '${dadosTratados['grupo'] ?? ''} | Séries: ${dadosTratados['series'] ?? ''} | Carga: ${dadosTratados['carga'] ?? ''}',
-                      ),
-                      trailing: _eProfessor
-                          ? Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.edit,
-                                    color: Colors.orange,
-                                  ),
-                                  onPressed: () => _abrirConfiguracaoExercicio(
-                                    dadosTratados['grupo'] ?? '',
-                                    dadosTratados['exercicios'] ?? '',
-                                    treinoId: t.id,
-                                    seriesAtual: dadosTratados['series'],
-                                    cargaAtual: dadosTratados['carga'],
-                                    videoUrlAtual: dadosTratados['videoUrl'],
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.delete,
-                                    color: Colors.red,
-                                  ),
-                                  onPressed: () =>
-                                      _workoutService.excluirTreino(
-                                        _alunoSelecionadoId!,
-                                        t.id,
-                                      ),
-                                ),
-                              ],
-                            )
-                          : const Icon(
-                              Icons.info_outline,
-                              color: Colors.blueGrey,
-                            ), // Ícone amigável pro aluno saber que dá pra clicar
-                      // === ATUALIZAÇÃO SUCESSO AQUI: QUANDO O ALUNO CLICA, ABRE O POPUP ===
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
                       onTap: () {
                         if (!_eProfessor) {
                           _mostrarDetalhesExercicioAluno(dadosTratados);
                         }
                       },
+                      child: ListTile(
+                        leading: IconButton(
+                          icon: const Icon(
+                            Icons.play_circle_fill,
+                            color: Colors.amber,
+                            size: 34,
+                          ),
+                          onPressed: () =>
+                              _assistirVideo(dadosTratados['videoUrl']),
+                        ),
+                        title: Text(
+                          dadosTratados['exercicios'] ?? 'Exercício',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text(
+                          '${dadosTratados['grupo'] ?? ''} | Séries: ${dadosTratados['series'] ?? ''} | Carga: ${dadosTratados['carga'] ?? ''}',
+                        ),
+                        trailing: _eProfessor
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.edit,
+                                      color: Colors.orange,
+                                    ),
+                                    onPressed: () =>
+                                        _abrirConfiguracaoExercicio(
+                                          dadosTratados['grupo'] ?? '',
+                                          dadosTratados['exercicios'] ?? '',
+                                          treinoId: t.id,
+                                          seriesAtual: dadosTratados['series'],
+                                          cargaAtual: dadosTratados['carga'],
+                                          videoUrlAtual:
+                                              dadosTratados['videoUrl'],
+                                        ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete,
+                                      color: Colors.red,
+                                    ),
+                                    onPressed: () =>
+                                        _workoutService.excluirTreino(
+                                          _alunoSelecionadoId!,
+                                          t.id,
+                                        ),
+                                  ),
+                                ],
+                              )
+                            : const Icon(
+                                Icons.info_outline,
+                                color: Colors.blueGrey,
+                              ),
+                      ),
                     ),
                   );
                 }).toList(),
