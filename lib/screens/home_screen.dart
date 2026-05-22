@@ -456,6 +456,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // --- FUNÇÃO ASSISTIR VÍDEO EXCELENTE COM AUTOPLAY, LOOP E LAYOUT EXPANDIDO ---
   void _assistirVideo(String? url) {
     if (url == null || url.isEmpty || url == '---') return;
 
@@ -464,35 +465,62 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final playerController = YoutubePlayerController.fromVideoId(
       videoId: videoId,
-      params: YoutubePlayerParams(
-        // <-- Pronto! Sem a palavra const
+      params: const YoutubePlayerParams(
         showControls: true,
         showFullscreenButton: true,
         mute: false,
-        loop: true,
+        autoPlay: true, // Força o play automático no Android e Web
+        loop: true, // Ativa a instrução de loop contínuo
       ),
     );
 
     showDialog(
       context: context,
+      barrierDismissible:
+          false, // Força o aluno a usar o botão explícito de fechar
       builder: (context) => AlertDialog(
         backgroundColor: Colors.black,
-        contentPadding: EdgeInsets.zero,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        contentPadding: EdgeInsets.zero, // Remove margens internas brancas
+        insetPadding: const EdgeInsets.symmetric(
+          horizontal: 8,
+          vertical: 24,
+        ), // Maximiza largura no Android
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            YoutubePlayer(controller: playerController),
+            AspectRatio(
+              aspectRatio:
+                  16 / 9, // Mantém proporção perfeita de vídeo widescreen
+              child: YoutubePlayer(controller: playerController),
+            ),
             Container(
               color: Colors.black,
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton.icon(
-                    style: TextButton.styleFrom(foregroundColor: Colors.amber),
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
-                    label: const Text('Fechar Vídeo'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.amber,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                    onPressed: () {
+                      playerController
+                          .close(); // Encerra conexões e streams do IFrame
+                      Navigator.pop(context);
+                    },
+                    icon: const Icon(Icons.close, size: 22),
+                    label: const Text(
+                      'Fechar Vídeo',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -598,10 +626,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 videoUrl: _videoUrlController.text,
               );
               if (treinoId != null) {
-                await _workoutService.excluirTreino(
-                  _alunoSelecionadoId!,
-                  treinoId,
-                );
+                await _workoutService.excluirTreino(_alunoSelecionadoId!, t.id);
               }
               if (!mounted) return;
               Navigator.pop(context);
@@ -1397,7 +1422,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   final dados = t.data() as Map<String, dynamic>?;
                   final dadosTratados = dados ?? {};
 
-                  // BLINDAGEM MÁXIMA CONTRA CONFLITO DE TOQUE NO ANDROID
                   return Card(
                     color: Colors.white,
                     margin: const EdgeInsets.symmetric(
@@ -1408,18 +1432,21 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 4.0),
                       child: Row(
                         children: [
-                          // 1. Botão do Play Isolado
-                          IconButton(
-                            icon: const Icon(
-                              Icons.play_circle_fill,
-                              color: Colors.amber,
-                              size: 36,
+                          // 1. Botão de vídeo independente na esquerda
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4.0),
+                            child: IconButton(
+                              icon: const Icon(
+                                Icons.play_circle_fill,
+                                color: Colors.amber,
+                                size: 36,
+                              ),
+                              onPressed: () =>
+                                  _assistirVideo(dadosTratados['videoUrl']),
                             ),
-                            onPressed: () =>
-                                _assistirVideo(dadosTratados['videoUrl']),
                           ),
 
-                          // 2. Miolo do Texto com Detector Opaco (Ocupa todo o espaço e força a captura no Android)
+                          // 2. Área central protegida por GestureDetector opaco para cliques no Android
                           Expanded(
                             child: GestureDetector(
                               behavior: HitTestBehavior.opaque,
@@ -1458,7 +1485,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
 
-                          // 3. Botões da Direita (Controle Professor ou Alvo de Toque pro Aluno)
+                          // 3. Área de ações na direita (Diferenciada para Professor e Aluno)
                           if (_eProfessor)
                             Row(
                               mainAxisSize: MainAxisSize.min,
@@ -1493,7 +1520,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ],
                             )
                           else
-                            // Transforma o ícone de info em botão ativo. Se o aluno clicar aqui, abre o modal 100% das vezes.
+                            // Alvo secundário de clique para o Aluno abrir o modal de detalhes
                             IconButton(
                               icon: const Icon(
                                 Icons.info_outline,
