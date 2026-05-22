@@ -54,7 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String? _alunoSelecionadoId;
   String? _alunoSelecionadoNome;
-  String? _alunoSelecionadoEmail;
+  String? _alunoSelecionadoEmail; 
   bool _eProfessor = false;
   bool _carregandoPerfil = true;
 
@@ -117,20 +117,18 @@ class _HomeScreenState extends State<HomeScreen> {
         .doc('planos')
         .snapshots()
         .listen((snapshot) {
-          if (snapshot.exists && snapshot.data() != null) {
-            final dados = snapshot.data()!;
-            setState(() {
-              _valoresPlanosCarregados = {
-                'Mensal': double.tryParse(dados['Mensal'].toString()) ?? 80.0,
-                'Trimestral':
-                    double.tryParse(dados['Trimestral'].toString()) ?? 220.0,
-                'Semestral':
-                    double.tryParse(dados['Semestral'].toString()) ?? 420.0,
-                'Anual': double.tryParse(dados['Anual'].toString()) ?? 800.0,
-              };
-            });
-          }
+      if (snapshot.exists && snapshot.data() != null) {
+        final dados = snapshot.data()!;
+        setState(() {
+          _valoresPlanosCarregados = {
+            'Mensal': double.tryParse(dados['Mensal'].toString()) ?? 80.0,
+            'Trimestral': double.tryParse(dados['Trimestral'].toString()) ?? 220.0,
+            'Semestral': double.tryParse(dados['Semestral'].toString()) ?? 420.0,
+            'Anual': double.tryParse(dados['Anual'].toString()) ?? 800.0,
+          };
         });
+      }
+    });
   }
 
   @override
@@ -168,10 +166,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Icon(Icons.edit, color: Colors.orange),
             SizedBox(width: 8),
-            Text(
-              'Editar Cadastro do Aluno',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
+            Text('Editar Cadastro do Aluno', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
         content: Column(
@@ -179,32 +174,20 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             TextField(
               controller: _editarNomeAlunoController,
-              decoration: const InputDecoration(
-                labelText: 'Nome do Aluno',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: 'Nome do Aluno', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _editarEmailAlunoController,
               keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'E-mail de Acesso',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: 'E-mail de Acesso', border: OutlineInputBorder()),
             ),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.black,
-              foregroundColor: Colors.amber,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.amber),
             onPressed: () async {
               if (_editarNomeAlunoController.text.trim().isEmpty) return;
 
@@ -212,23 +195,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   .collection('usuarios')
                   .doc(_alunoSelecionadoId)
                   .update({
-                    'nome': _editarNomeAlunoController.text.trim(),
-                    'email': _editarEmailAlunoController.text.trim(),
-                  });
+                'nome': _editarNomeAlunoController.text.trim(),
+                'email': _editarEmailAlunoController.text.trim(),
+              });
 
               setState(() {
                 _alunoSelecionadoNome = _editarNomeAlunoController.text.trim();
-                _alunoSelecionadoEmail = _editarEmailAlunoController.text
-                    .trim();
+                _alunoSelecionadoEmail = _editarEmailAlunoController.text.trim();
               });
 
               if (!mounted) return;
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Dados do aluno atualizados! 📝'),
-                  backgroundColor: Colors.green,
-                ),
+                const SnackBar(content: Text('Dados do aluno atualizados! 📝'), backgroundColor: Colors.green),
               );
             },
             child: const Text('Salvar'),
@@ -248,28 +227,14 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Icon(Icons.warning, color: Colors.red),
             SizedBox(width: 8),
-            Text(
-              'Excluir Aluno?',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
+            Text('Excluir Aluno?', style: TextStyle(fontWeight: FontWeight.bold)),
           ],
         ),
-        content: Text(
-          'Tem certeza que deseja apagar o cadastro de "$_alunoSelecionadoNome"?',
-        ),
+        content: Text('Tem certeza que deseja apagar o cadastro de "$_alunoSelecionadoNome"?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Cancelar',
-              style: TextStyle(color: Colors.black),
-            ),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(color: Colors.black))),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () async {
               final idParaDeletar = _alunoSelecionadoId!;
               setState(() {
@@ -278,10 +243,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _alunoSelecionadoEmail = null;
               });
 
-              await FirebaseFirestore.instance
-                  .collection('usuarios')
-                  .doc(idParaDeletar)
-                  .delete();
+              await FirebaseFirestore.instance.collection('usuarios').doc(idParaDeletar).delete();
 
               if (!mounted) return;
               Navigator.pop(context);
@@ -306,29 +268,24 @@ class _HomeScreenState extends State<HomeScreen> {
         .doc(alunoId)
         .collection('pagamentos')
         .add({
-          'valorPago': valorPago,
-          'plano': plano,
-          'dataPagamento': Timestamp.fromDate(agora),
-          'mesReferencia': '${agora.month}/${agora.year}',
-        });
+      'valorPago': valorPago,
+      'plano': plano,
+      'dataPagamento': Timestamp.fromDate(agora),
+      'mesReferencia': '${agora.month}/${agora.year}',
+    });
 
-    await FirebaseFirestore.instance
-        .collection('usuarios')
-        .doc(alunoId)
-        .update({
-          'statusPagamento': 'Pago',
-          'valorMensalidade': valorPago,
-          'diaVencimento': diaVencimento,
-          'plano': plano,
-        });
+    await FirebaseFirestore.instance.collection('usuarios').doc(alunoId).update({
+      'statusPagamento': 'Pago',
+      'valorMensalidade': valorPago,
+      'diaVencimento': diaVencimento,
+      'plano': plano,
+    });
   }
 
   void _abrirConfiguracaoDeValoresDoCardapio() {
     _editMensalController.text = _valoresPlanosCarregados['Mensal'].toString();
-    _editTrimestralController.text = _valoresPlanosCarregados['Trimestral']
-        .toString();
-    _editSemestralController.text = _valoresPlanosCarregados['Semestral']
-        .toString();
+    _editTrimestralController.text = _valoresPlanosCarregados['Trimestral'].toString();
+    _editSemestralController.text = _valoresPlanosCarregados['Semestral'].toString();
     _editAnualController.text = _valoresPlanosCarregados['Anual'].toString();
 
     showDialog(
@@ -338,67 +295,36 @@ class _HomeScreenState extends State<HomeScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              controller: _editMensalController,
-              decoration: const InputDecoration(labelText: 'Plano Mensal'),
-            ),
-            TextField(
-              controller: _editTrimestralController,
-              decoration: const InputDecoration(labelText: 'Plano Trimestral'),
-            ),
-            TextField(
-              controller: _editSemestralController,
-              decoration: const InputDecoration(labelText: 'Plano Semestral'),
-            ),
-            TextField(
-              controller: _editAnualController,
-              decoration: const InputDecoration(labelText: 'Plano Anual'),
-            ),
+            TextField(controller: _editMensalController, decoration: const InputDecoration(labelText: 'Plano Mensal')),
+            TextField(controller: _editTrimestralController, decoration: const InputDecoration(labelText: 'Plano Trimestral')),
+            TextField(controller: _editSemestralController, decoration: const InputDecoration(labelText: 'Plano Semestral')),
+            TextField(controller: _editAnualController, decoration: const InputDecoration(labelText: 'Plano Anual')),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () async {
-              await FirebaseFirestore.instance
-                  .collection('configuracoes')
-                  .doc('planos')
-                  .set({
-                    'Mensal':
-                        double.tryParse(_editMensalController.text) ?? 80.0,
-                    'Trimestral':
-                        double.tryParse(_editTrimestralController.text) ??
-                        220.0,
-                    'Semestral':
-                        double.tryParse(_editSemestralController.text) ?? 420.0,
-                    'Anual':
-                        double.tryParse(_editAnualController.text) ?? 800.0,
-                  }, SetOptions(merge: true));
+              await FirebaseFirestore.instance.collection('configuracoes').doc('planos').set({
+                'Mensal': double.tryParse(_editMensalController.text) ?? 80.0,
+                'Trimestral': double.tryParse(_editTrimestralController.text) ?? 220.0,
+                'Semestral': double.tryParse(_editSemestralController.text) ?? 420.0,
+                'Anual': double.tryParse(_editAnualController.text) ?? 800.0,
+              }, SetOptions(merge: true));
               if (!mounted) return;
               Navigator.pop(context);
             },
             child: const Text('Atualizar'),
-          ),
+          )
         ],
       ),
     );
   }
 
-  void _abrirGerenciamentoFinanceiro(
-    String alunoId,
-    String nomeAluno,
-    Map<String, dynamic> dadosAtuais,
-  ) {
+  void _abrirGerenciamentoFinanceiro(String alunoId, String nomeAluno, Map<String, dynamic> dadosAtuais) {
     _planoSelecionadoAluno = dadosAtuais['plano'] ?? 'Mensal';
-    _mensalidadeController.text =
-        (dadosAtuais['valorMensalidade'] ??
-                _valoresPlanosCarregados[_planoSelecionadoAluno])
-            .toString();
-    _vencimentoController.text = (dadosAtuais['diaVencimento'] ?? 10)
-        .toString();
+    _mensalidadeController.text = (dadosAtuais['valorMensalidade'] ?? _valoresPlanosCarregados[_planoSelecionadoAluno]).toString();
+    _vencimentoController.text = (dadosAtuais['diaVencimento'] ?? 10).toString();
     _statusPagamentoSelecionado = dadosAtuais['statusPagamento'] ?? 'Pendente';
 
     showDialog(
@@ -411,44 +337,30 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               DropdownButtonFormField<String>(
                 value: _planoSelecionadoAluno,
-                items: _valoresPlanosCarregados.keys
-                    .map((p) => DropdownMenuItem(value: p, child: Text(p)))
-                    .toList(),
+                items: _valoresPlanosCarregados.keys.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
                 onChanged: (v) => setPopupState(() {
                   _planoSelecionadoAluno = v!;
-                  _mensalidadeController.text = _valoresPlanosCarregados[v]
-                      .toString();
+                  _mensalidadeController.text = _valoresPlanosCarregados[v].toString();
                 }),
               ),
-              TextField(
-                controller: _mensalidadeController,
-                decoration: const InputDecoration(labelText: 'Valor'),
-              ),
-              TextField(
-                controller: _vencimentoController,
-                decoration: const InputDecoration(labelText: 'Vencimento'),
-              ),
+              TextField(controller: _mensalidadeController, decoration: const InputDecoration(labelText: 'Valor')),
+              TextField(controller: _vencimentoController, decoration: const InputDecoration(labelText: 'Vencimento')),
             ],
           ),
           actions: [
             ElevatedButton(
               onPressed: () async {
-                await FirebaseFirestore.instance
-                    .collection('usuarios')
-                    .doc(alunoId)
-                    .update({
-                      'valorMensalidade':
-                          double.tryParse(_mensalidadeController.text) ?? 0.0,
-                      'diaVencimento':
-                          int.tryParse(_vencimentoController.text) ?? 10,
-                      'statusPagamento': _statusPagamentoSelecionado,
-                      'plano': _planoSelecionadoAluno,
-                    });
+                await FirebaseFirestore.instance.collection('usuarios').doc(alunoId).update({
+                  'valorMensalidade': double.tryParse(_mensalidadeController.text) ?? 0.0,
+                  'diaVencimento': int.tryParse(_vencimentoController.text) ?? 10,
+                  'statusPagamento': _statusPagamentoSelecionado,
+                  'plano': _planoSelecionadoAluno,
+                });
                 if (!mounted) return;
                 Navigator.pop(context);
               },
               child: const Text('Salvar'),
-            ),
+            )
           ],
         ),
       ),
@@ -466,7 +378,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _adicionarExercicioAoCardapio() async {
     String nomeExercicio = _novoExercicioCardapioController.text.trim();
     String linkVideo = _videoUrlController.text.trim();
-
+    
     if (nomeExercicio.isEmpty) return;
 
     await FirebaseFirestore.instance.collection('exercicios').add({
@@ -478,20 +390,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
     _novoExercicioCardapioController.clear();
     _videoUrlController.clear();
-
+    
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Exercício e vídeo salvos no Firestore com sucesso! ✔'),
-        backgroundColor: Colors.green,
-      ),
+      const SnackBar(content: Text('Exercício e vídeo salvos no Firestore com sucesso! ✔'), backgroundColor: Colors.green),
     );
   }
 
   void _removerExercicioDoCardapio(String docId) async {
-    await FirebaseFirestore.instance
-        .collection('exercicios')
-        .doc(docId)
-        .delete();
+    await FirebaseFirestore.instance.collection('exercicios').doc(docId).delete();
   }
 
   void _abrirConfiguracaoExercicio(
@@ -506,44 +412,24 @@ class _HomeScreenState extends State<HomeScreen> {
     _grupoController.text = grupo;
     _exerciciosController.text = exercicio;
     _seriesController.text = seriesAtual ?? '4x10';
-    _cargaController.text = cargaAtual != null
-        ? cargaAtual.replaceAll(' kg', '')
-        : '';
+    _cargaController.text = cargaAtual != null ? cargaAtual.replaceAll(' kg', '') : '';
     _videoUrlController.text = videoUrlAtual ?? '---';
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(
-          treinoId == null
-              ? 'Vincular ao Treino $_fichaSelecionadaAluno'
-              : 'Editar Exercício',
-        ),
+        title: Text(treinoId == null ? 'Vincular ao Treino $_fichaSelecionadaAluno' : 'Editar Exercício'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text('Exercício: $exercicio'),
-            TextField(
-              controller: _seriesController,
-              decoration: const InputDecoration(
-                labelText: 'Séries x Repetições',
-              ),
-            ),
-            TextField(
-              controller: _cargaController,
-              decoration: const InputDecoration(labelText: 'Carga (kg)'),
-            ),
-            TextField(
-              controller: _videoUrlController,
-              decoration: const InputDecoration(labelText: 'Link do Vídeo'),
-            ),
+            TextField(controller: _seriesController, decoration: const InputDecoration(labelText: 'Séries x Repetições')),
+            TextField(controller: _cargaController, decoration: const InputDecoration(labelText: 'Carga (kg)')),
+            TextField(controller: _videoUrlController, decoration: const InputDecoration(labelText: 'Link do Vídeo')),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () async {
               await _workoutService.salvarTreino(
@@ -552,16 +438,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 grupoMuscular: _grupoController.text,
                 nomeExercicios: _exerciciosController.text,
                 seriesRepeticoes: _seriesController.text,
-                carga: _cargaController.text.isEmpty
-                    ? '---'
-                    : '${_cargaController.text} kg',
+                carga: _cargaController.text.isEmpty ? '---' : '${_cargaController.text} kg',
                 videoUrl: _videoUrlController.text,
               );
               if (treinoId != null) {
-                await _workoutService.excluirTreino(
-                  _alunoSelecionadoId!,
-                  treinoId,
-                );
+                await _workoutService.excluirTreino(_alunoSelecionadoId!, treinoId);
               }
               if (!mounted) return;
               Navigator.pop(context);
@@ -585,10 +466,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: Text(
                 dados['exercicios'] ?? 'Exercício',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
               ),
             ),
           ],
@@ -597,24 +475,11 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Grupo Muscular: ${dados['grupo'] ?? '---'}',
-              style: const TextStyle(fontSize: 16),
-            ),
+            Text('Grupo Muscular: ${dados['grupo'] ?? '---'}', style: const TextStyle(fontSize: 16)),
             const SizedBox(height: 8),
-            Text(
-              'Séries e Repetições: ${dados['series'] ?? '---'}',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
+            Text('Séries e Repetições: ${dados['series'] ?? '---'}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Text(
-              'Carga Configurada: ${dados['carga'] ?? '---'}',
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.blueAccent,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            Text('Carga Configurada: ${dados['carga'] ?? '---'}', style: const TextStyle(fontSize: 16, color: Colors.blueAccent, fontWeight: FontWeight.bold)),
           ],
         ),
         actions: [
@@ -622,14 +487,9 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Fechar', style: TextStyle(color: Colors.black)),
           ),
-          if (dados['videoUrl'] != null &&
-              dados['videoUrl'] != '---' &&
-              dados['videoUrl'].toString().isNotEmpty)
+          if (dados['videoUrl'] != null && dados['videoUrl'] != '---' && dados['videoUrl'].toString().isNotEmpty)
             ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.amber,
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.amber),
               onPressed: () {
                 Navigator.pop(context);
                 _assistirVideo(dados['videoUrl']);
@@ -656,10 +516,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _matricularNovoAluno() async {
-    if (_novoNomeController.text.isEmpty ||
-        _novoEmailController.text.isEmpty ||
-        _novaSenhaController.text.isEmpty)
-      return;
+    if (_novoNomeController.text.isEmpty || _novoEmailController.text.isEmpty || _novaSenhaController.text.isEmpty) return;
     try {
       await _authService.professorCadastrarAluno(
         nome: _novoNomeController.text,
@@ -693,10 +550,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return StreamBuilder<QuerySnapshot>(
         stream: _workoutService.listarTodosAlunos(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData)
-            return const Center(
-              child: CircularProgressIndicator(color: Colors.amber),
-            );
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.amber));
 
           final alunos = snapshot.data!.docs;
           double faturamentoTotal = 0;
@@ -705,19 +559,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
           for (var doc in alunos) {
             final dados = doc.data() as Map<String, dynamic>;
-            final String emailAluno =
-                dados['email']?.toString().toLowerCase() ?? '';
+            final String emailAluno = dados['email']?.toString().toLowerCase() ?? '';
 
-            if (emailAluno.contains('admin') ||
-                emailAluno.contains('professor') ||
-                emailAluno == 'alexsandrocosta33@gmail.com')
-              continue;
+            if (emailAluno.contains('admin') || emailAluno.contains('professor') || emailAluno == 'alexsandrocosta33@gmail.com') continue;
 
             faturamentoTotal += (dados['valorMensalidade'] ?? 0.0);
             if (dados['statusPagamento'] == 'Pago') pagos++;
-            if (dados['statusPagamento'] == 'Pendente' ||
-                dados['statusPagamento'] == 'Atrasado')
-              pendentes++;
+            if (dados['statusPagamento'] == 'Pendente' || dados['statusPagamento'] == 'Atrasado') pendentes++;
           }
 
           return Column(
@@ -740,35 +588,17 @@ class _HomeScreenState extends State<HomeScreen> {
                           const Row(
                             children: [
                               Icon(Icons.style, color: Colors.amber, size: 18),
-                              SizedBox(width: 6),
-                              Text(
-                                'Tabela de Preços (Cardápio)',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  color: Colors.black,
-                                ),
-                              ),
+                              SFunctionalSizedBox: SizedBox(width: 6),
+                              Text('Tabela de Preços (Cardápio)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black)),
                             ],
                           ),
                           InkWell(
                             onTap: _abrirConfiguracaoDeValoresDoCardapio,
                             child: const Row(
                               children: [
-                                Icon(
-                                  Icons.settings,
-                                  color: Colors.black54,
-                                  size: 14,
-                                ),
+                                Icon(Icons.settings, color: Colors.black54, size: 14),
                                 SizedBox(width: 4),
-                                Text(
-                                  'Editar Cardápio',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.black54,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                                Text('Editar Cardápio', style: TextStyle(fontSize: 11, color: Colors.black54, fontWeight: FontWeight.bold)),
                               ],
                             ),
                           ),
@@ -780,23 +610,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: _valoresPlanosCarregados.entries.map((entry) {
                           return Column(
                             children: [
-                              Text(
-                                entry.key,
-                                style: TextStyle(
-                                  color: Colors.grey[700],
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                              Text(entry.key, style: TextStyle(color: Colors.grey[700], fontSize: 11, fontWeight: FontWeight.w600)),
                               const SizedBox(height: 2),
-                              Text(
-                                'R\$ ${entry.value.toStringAsFixed(0)}',
-                                style: const TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                              Text('R\$ ${entry.value.toStringAsFixed(0)}', style: const TextStyle(color: Colors.black, fontSize: 13, fontWeight: FontWeight.bold)),
                             ],
                           );
                         }).toList(),
@@ -815,21 +631,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         padding: const EdgeInsets.all(12.0),
                         child: Column(
                           children: [
-                            const Text(
-                              'Previsão Total',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 12,
-                              ),
-                            ),
-                            Text(
-                              'R\$ ${faturamentoTotal.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                color: Colors.amber,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            const Text('Previsão Total', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                            Text('R\$ ${faturamentoTotal.toStringAsFixed(2)}', style: const TextStyle(color: Colors.amber, fontSize: 16, fontWeight: FontWeight.bold)),
                           ],
                         ),
                       ),
@@ -842,21 +645,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         padding: const EdgeInsets.all(12.0),
                         child: Column(
                           children: [
-                            const Text(
-                              'Pagos',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 12,
-                              ),
-                            ),
-                            Text(
-                              '$pagos',
-                              style: const TextStyle(
-                                color: Colors.green,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            const Text('Pagos', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                            Text('$pagos', style: const TextStyle(color: Colors.green, fontSize: 16, fontWeight: FontWeight.bold)),
                           ],
                         ),
                       ),
@@ -869,21 +659,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         padding: const EdgeInsets.all(12.0),
                         child: Column(
                           children: [
-                            const Text(
-                              'Pendentes',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 12,
-                              ),
-                            ),
-                            Text(
-                              '$pendentes',
-                              style: const TextStyle(
-                                color: Colors.orange,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            const Text('Pendentes', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                            Text('$pendentes', style: const TextStyle(color: Colors.orange, fontSize: 16, fontWeight: FontWeight.bold)),
                           ],
                         ),
                       ),
@@ -892,10 +669,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Alunos Ativos e Planos:',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-              ),
+              const Text('Alunos Ativos e Planos:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               const SizedBox(height: 8),
               ListView.builder(
                 shrinkWrap: true,
@@ -904,18 +678,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 itemBuilder: (context, index) {
                   final doc = alunos[index];
                   final dados = doc.data() as Map<String, dynamic>;
-                  final String nome =
-                      dados['nome'] ?? dados['email'] ?? 'Sem nome';
+                  final String nome = dados['nome'] ?? dados['email'] ?? 'Sem nome';
                   final String status = dados['statusPagamento'] ?? 'Pendente';
                   final double valor = dados['valorMensalidade'] ?? 0.0;
                   final int vencimento = dados['diaVencimento'] ?? 10;
                   final String plano = dados['plano'] ?? 'Mensal';
-                  final String emailAluno =
-                      dados['email']?.toString().toLowerCase() ?? '';
+                  final String emailAluno = dados['email']?.toString().toLowerCase() ?? '';
 
-                  if (emailAluno.contains('admin') ||
-                      emailAluno.contains('professor') ||
-                      emailAluno == 'alexsandrocosta33@gmail.com') {
+                  if (emailAluno.contains('admin') || emailAluno.contains('professor') || emailAluno == 'alexsandrocosta33@gmail.com') {
                     return const SizedBox.shrink();
                   }
 
@@ -925,55 +695,26 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: ListTile(
                       title: Row(
                         children: [
-                          Text(
-                            nome,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
+                          Text(nome, style: const TextStyle(fontWeight: FontWeight.bold)),
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              plano,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey[800],
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(4)),
+                            child: Text(plano, style: TextStyle(fontSize: 10, color: Colors.grey[800], fontWeight: FontWeight.w500)),
                           ),
                         ],
                       ),
-                      subtitle: Text(
-                        'Vence dia $vencimento | Valor: R\$ ${valor.toStringAsFixed(2)}',
-                      ),
+                      subtitle: Text('Vence dia $vencimento | Valor: R\$ ${valor.toStringAsFixed(2)}'),
                       trailing: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: _obterCorStatus(status).withOpacity(0.15),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: _obterCorStatus(status)),
                         ),
-                        child: Text(
-                          status.toUpperCase(),
-                          style: TextStyle(
-                            color: _obterCorStatus(status),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                          ),
-                        ),
+                        child: Text(status.toUpperCase(), style: TextStyle(color: _obterCorStatus(status), fontWeight: FontWeight.bold, fontSize: 11)),
                       ),
-                      onTap: () =>
-                          _abrirGerenciamentoFinanceiro(doc.id, nome, dados),
+                      onTap: () => _abrirGerenciamentoFinanceiro(doc.id, nome, dados),
                     ),
                   );
                 },
@@ -989,84 +730,43 @@ class _HomeScreenState extends State<HomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ExpansionTile(
-            title: const Text(
-              'Matricular Novo Aluno',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
+            title: const Text('Matricular Novo Aluno', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
             leading: const Icon(Icons.person_add, color: Colors.amber),
             children: [
               Padding(
                 padding: const EdgeInsets.all(12.0),
                 child: Column(
                   children: [
-                    TextField(
-                      controller: _novoNomeController,
-                      decoration: const InputDecoration(
-                        labelText: 'Nome do Aluno',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
+                    TextField(controller: _novoNomeController, decoration: const InputDecoration(labelText: 'Nome do Aluno', border: OutlineInputBorder())),
                     const SizedBox(height: 8),
-                    TextField(
-                      controller: _novoEmailController,
-                      decoration: const InputDecoration(
-                        labelText: 'E-mail de Acesso',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
+                    TextField(controller: _novoEmailController, decoration: const InputDecoration(labelText: 'E-mail de Acesso', border: OutlineInputBorder())),
                     const SizedBox(height: 8),
-                    TextField(
-                      controller: _novaSenhaController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Senha Inicial',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
+                    TextField(controller: _novaSenhaController, obscureText: true, decoration: const InputDecoration(labelText: 'Senha Inicial', border: OutlineInputBorder())),
                     const SizedBox(height: 12),
-                    ElevatedButton(
-                      onPressed: _matricularNovoAluno,
-                      child: const Text('Confirmar Matrícula'),
-                    ),
+                    ElevatedButton(onPressed: _matricularNovoAluno, child: const Text('Confirmar Matrícula')),
                   ],
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          const Text(
-            'Selecione o Aluno para Gerenciar:',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-          ),
+          const Text('Selecione o Aluno para Gerenciar:', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
           Row(
             children: [
               Expanded(
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFFBDBDBD)),
-                    borderRadius: BorderRadius.circular(8),
-                    color: Colors.white,
-                  ),
+                  decoration: BoxDecoration(border: Border.all(color: const Color(0xFFBDBDBD)), borderRadius: BorderRadius.circular(8), color: Colors.white),
                   child: StreamBuilder<QuerySnapshot>(
                     stream: _workoutService.listarTodosAlunos(),
                     builder: (context, snapshot) {
-                      if (!snapshot.hasData)
-                        return const LinearProgressIndicator(
-                          color: Colors.amber,
-                        );
+                      if (!snapshot.hasData) return const LinearProgressIndicator(color: Colors.amber);
                       final usuarios = snapshot.data!.docs;
 
                       final apenasAlunosreais = usuarios.where((doc) {
-                        final email =
-                            doc['email']?.toString().toLowerCase() ?? '';
-                        return !email.contains('admin') &&
-                            !email.contains('professor') &&
-                            email != 'alexsandrocosta33@gmail.com';
+                        final email = doc['email']?.toString().toLowerCase() ?? '';
+                        return !email.contains('admin') && !email.contains('professor') && email != 'alexsandrocosta33@gmail.com';
                       }).toList();
 
                       return DropdownButtonHideUnderline(
@@ -1074,25 +774,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           value: _alunoSelecionadoId,
                           hint: const Text('Selecione um aluno ativo'),
                           isExpanded: true,
-                          items: apenasAlunosreais
-                              .map(
-                                (doc) => DropdownMenuItem<String>(
-                                  value: doc.id,
-                                  child: Text(doc['nome'] ?? doc['email']),
-                                ),
-                              )
-                              .toList(),
+                          items: apenasAlunosreais.map((doc) => DropdownMenuItem<String>(value: doc.id, child: Text(doc['nome'] ?? doc['email']))).toList(),
                           onChanged: (id) {
                             if (id == null) return;
-                            final docEscolhido = usuarios.firstWhere(
-                              (element) => element.id == id,
-                            );
+                            final docEscolhido = usuarios.firstWhere((element) => element.id == id);
                             setState(() {
                               _alunoSelecionadoId = id;
-                              _alunoSelecionadoNome =
-                                  docEscolhido['nome'] ?? docEscolhido['email'];
-                              _alunoSelecionadoEmail =
-                                  docEscolhido['email'] ?? '';
+                              _alunoSelecionadoNome = docEscolhido['nome'] ?? docEscolhido['email'];
+                              _alunoSelecionadoEmail = docEscolhido['email'] ?? '';
                             });
                           },
                         ),
@@ -1103,14 +792,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               if (_alunoSelecionadoId != null) ...[
                 const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.edit, color: Colors.orange),
-                  onPressed: _abrirEdicaoDadosAluno,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_forever, color: Colors.red),
-                  onPressed: _confirmarExclusaoAluno,
-                ),
+                IconButton(icon: const Icon(Icons.edit, color: Colors.orange), onPressed: _abrirEdicaoDadosAluno),
+                IconButton(icon: const Icon(Icons.delete_forever, color: Colors.red), onPressed: _confirmarExclusaoAluno),
               ],
             ],
           ),
@@ -1123,13 +806,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text(
-                      '➕ Cadastrar Novo Exercício no Firestore:',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
+                    const Text('➕ Cadastrar Novo Exercício no Firestore:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 10),
                     Row(
                       children: [
@@ -1137,33 +814,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           flex: 2,
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey),
-                              borderRadius: BorderRadius.circular(4),
-                              color: Colors.white,
-                            ),
+                            decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(4), color: Colors.white),
                             child: DropdownButtonHideUnderline(
                               child: DropdownButton<String>(
                                 value: _grupoSelecionadoParaNovoExercicio,
-                                items:
-                                    [
-                                          'Peito',
-                                          'Costas',
-                                          'Bíceps',
-                                          'Tríceps',
-                                          'Pernas',
-                                          'Ombros',
-                                        ]
-                                        .map(
-                                          (g) => DropdownMenuItem(
-                                            value: g,
-                                            child: Text(g),
-                                          ),
-                                        )
-                                        .toList(),
-                                onChanged: (v) => setState(
-                                  () => _grupoSelecionadoParaNovoExercicio = v!,
-                                ),
+                                items: ['Peito', 'Costas', 'Bíceps', 'Tríceps', 'Pernas', 'Ombros'].map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
+                                onChanged: (v) => setState(() => _grupoSelecionadoParaNovoExercicio = v!),
                               ),
                             ),
                           ),
@@ -1173,12 +829,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           flex: 3,
                           child: TextField(
                             controller: _novoExercicioCardapioController,
-                            decoration: const InputDecoration(
-                              labelText: 'Nome do Exercício',
-                              border: OutlineInputBorder(),
-                              fillColor: Colors.white,
-                              filled: true,
-                            ),
+                            decoration: const InputDecoration(labelText: 'Nome do Exercício', border: OutlineInputBorder(), fillColor: Colors.white, filled: true),
                           ),
                         ),
                       ],
@@ -1186,23 +837,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 8),
                     TextField(
                       controller: _videoUrlController,
-                      decoration: const InputDecoration(
-                        labelText: 'Link do Vídeo do YouTube (Opcional)',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(
-                          Icons.video_library,
-                          color: Colors.red,
-                        ),
-                        fillColor: Colors.white,
-                        filled: true,
-                      ),
+                      decoration: const InputDecoration(labelText: 'Link do Vídeo do YouTube (Opcional)', border: OutlineInputBorder(), prefixIcon: Icon(Icons.video_library, color: Colors.red), fillColor: Colors.white, filled: true),
                     ),
                     const SizedBox(height: 8),
                     ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        foregroundColor: Colors.amber,
-                      ),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.amber),
                       onPressed: _adicionarExercicioAoCardapio,
                       icon: const Icon(Icons.save),
                       label: const Text('Salvar no Banco de Dados'),
@@ -1212,77 +851,44 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
-              '📋 Cardápio de Exercícios Dinâmico (Firestore):',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-            ),
+            const Text('📋 Cardápio de Exercícios Dinâmico (Firestore):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             const SizedBox(height: 8),
-
+            
             Column(
-              children:
-                  [
-                    'Peito',
-                    'Costas',
-                    'Bíceps',
-                    'Tríceps',
-                    'Pernas',
-                    'Ombros',
-                  ].map((grupoNome) {
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      color: Colors.white,
-                      child: StreamBuilder<QuerySnapshot>(
-                        stream: FirebaseFirestore.instance
-                            .collection('exercicios')
-                            .where('grupo', isEqualTo: grupoNome)
-                            .snapshots(),
-                        builder: (context, exSnapshot) {
-                          if (!exSnapshot.hasData)
-                            return const LinearProgressIndicator(
-                              color: Colors.amber,
-                            );
-                          final itensBanco = exSnapshot.data!.docs;
+              children: ['Peito', 'Costas', 'Bíceps', 'Tríceps', 'Pernas', 'Ombros'].map((grupoNome) {
+                return Card(
+                  margin: const EdgeInsets.symmetric(vertical: 4),
+                  color: Colors.white,
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance.collection('exercicios').where('grupo', isEqualTo: grupoNome).snapshots(),
+                    builder: (context, exSnapshot) {
+                      if (!exSnapshot.hasData) return const LinearProgressIndicator(color: Colors.amber);
+                      final itensBanco = exSnapshot.data!.docs;
 
-                          return ExpansionTile(
-                            title: Text(
-                              'Treino de $grupoNome (${itensBanco.length})',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
+                      return ExpansionTile(
+                        title: Text('Treino de $grupoNome (${itensBanco.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        children: itensBanco.map<Widget>((docEx) {
+                          final item = docEx.data() as Map<String, dynamic>;
+                          return ListTile(
+                            title: Text(item['nome'] ?? ''),
+                            subtitle: Text('Vídeo: ${item['videoUrl'] ?? '---'}', maxLines: 1, overflow: TextOverflow.ellipsis),
+                            leading: IconButton(
+                              icon: const Icon(Icons.delete_outline, color: Colors.red),
+                              onPressed: () => _removerExercicioDoCardapio(docEx.id),
                             ),
-                            children: itensBanco.map<Widget>((docEx) {
-                              final item = docEx.data() as Map<String, dynamic>;
-                              return ListTile(
-                                title: Text(item['nome'] ?? ''),
-                                subtitle: Text(
-                                  'Vídeo: ${item['videoUrl'] ?? '---'}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                leading: IconButton(
-                                  icon: const Icon(
-                                    Icons.delete_outline,
-                                    color: Colors.red,
-                                  ),
-                                  onPressed: () =>
-                                      _removerExercicioDoCardapio(docEx.id),
-                                ),
-                                trailing: const Icon(
-                                  Icons.add_circle,
-                                  color: Colors.amber,
-                                ),
-                                onTap: () => _abrirConfiguracaoExercicio(
-                                  grupoNome,
-                                  item['nome'] ?? '',
-                                  videoUrlAtual: item['videoUrl'],
-                                ),
-                              );
-                            }).toList(),
+                            trailing: const Icon(Icons.add_circle, color: Colors.amber),
+                            onTap: () => _abrirConfiguracaoExercicio(
+                              grupoNome,
+                              item['nome'] ?? '',
+                              videoUrlAtual: item['videoUrl'],
+                            ),
                           );
-                        },
-                      ),
-                    );
-                  }).toList(),
+                        }).toList(),
+                      );
+                    },
+                  ),
+                );
+              }).toList(),
             ),
           ],
         ],
@@ -1295,20 +901,8 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                _eProfessor
-                    ? 'Gerenciando Ficha Ativa do Aluno:'
-                    : 'Escolha a Série de Hoje:',
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              if (_eProfessor)
-                IconButton(
-                  icon: const Icon(Icons.delete_sweep, color: Colors.red),
-                  onPressed: _limparFichaCompleta,
-                ),
+              Text(_eProfessor ? 'Gerenciando Ficha Ativa do Aluno:' : 'Escolha a Série de Hoje:', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+              if (_eProfessor) IconButton(icon: const Icon(Icons.delete_sweep, color: Colors.red), onPressed: _limparFichaCompleta),
             ],
           ),
           const SizedBox(height: 8),
@@ -1319,16 +913,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4.0),
                   child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: estaSelecionada
-                          ? Colors.black
-                          : Colors.white,
-                      foregroundColor: estaSelecionada
-                          ? Colors.amber
-                          : Colors.black87,
-                    ),
-                    onPressed: () =>
-                        setState(() => _fichaSelecionadaAluno = letraFicha),
+                    style: ElevatedButton.styleFrom(backgroundColor: estaSelecionada ? Colors.black : Colors.white, foregroundColor: estaSelecionada ? Colors.amber : Colors.black87),
+                    onPressed: () => setState(() => _fichaSelecionadaAluno = letraFicha),
                     child: Text('TREINO $letraFicha'),
                   ),
                 ),
@@ -1337,91 +923,82 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 12),
           StreamBuilder<QuerySnapshot>(
-            stream: _workoutService.listarTreinosPorFicha(
-              _alunoSelecionadoId!,
-              _fichaSelecionadaAluno,
-            ),
+            stream: _workoutService.listarTreinosPorFicha(_alunoSelecionadoId!, _fichaSelecionadaAluno),
             builder: (context, snapshot) {
-              if (!snapshot.hasData)
-                return const Center(
-                  child: CircularProgressIndicator(color: Colors.amber),
-                );
+              if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.amber));
               final treinos = snapshot.data?.docs ?? [];
-              if (treinos.isEmpty)
-                return const Center(
-                  child: Text('Nenhum exercício cadastrado nesta série.'),
-                );
-
+              if (treinos.isEmpty) return const Center(child: Text('Nenhum exercício cadastrado nesta série.'));
+              
               return Column(
                 children: treinos.map((t) {
                   final dados = t.data() as Map<String, dynamic>?;
                   final dadosTratados = dados ?? {};
 
-                  // BLINDAGEM DE CLIQUE: Usando InkWell para forçar o Card inteiro do aluno a responder ao toque
+                  // CORREÇÃO ANDROID DE OURO: Separando fisicamente os blocos de toque usando Row estruturada
                   return Card(
                     color: Colors.white,
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: () {
-                        if (!_eProfessor) {
-                          _mostrarDetalhesExercicioAluno(dadosTratados);
-                        }
-                      },
-                      child: ListTile(
-                        leading: IconButton(
-                          icon: const Icon(
-                            Icons.play_circle_fill,
-                            color: Colors.amber,
-                            size: 34,
+                    margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                    child: Row(
+                      children: [
+                        // Bloco 1: O Botão do Play de Vídeo (Quadrado isolado na esquerda)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8.0),
+                          child: IconButton(
+                            icon: const Icon(Icons.play_circle_fill, color: Colors.amber, size: 36),
+                            onPressed: () => _assistirVideo(dadosTratados['videoUrl']),
                           ),
-                          onPressed: () =>
-                              _assistirVideo(dadosTratados['videoUrl']),
                         ),
-                        title: Text(
-                          dadosTratados['exercicios'] ?? 'Exercício',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Text(
-                          '${dadosTratados['grupo'] ?? ''} | Séries: ${dadosTratados['series'] ?? ''} | Carga: ${dadosTratados['carga'] ?? ''}',
-                        ),
-                        trailing: _eProfessor
-                            ? Row(
-                                mainAxisSize: MainAxisSize.min,
+                        
+                        // Bloco 2: Área de Texto de Clique (Usa InkWell isolado para abrir o modal do Aluno)
+                        Expanded(
+                          child: InkWell(
+                            onTap: () {
+                              if (!_eProfessor) {
+                                _mostrarDetalhesExercicioAluno(dadosTratados);
+                              }
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 8.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.edit,
-                                      color: Colors.orange,
-                                    ),
-                                    onPressed: () =>
-                                        _abrirConfiguracaoExercicio(
-                                          dadosTratados['grupo'] ?? '',
-                                          dadosTratados['exercicios'] ?? '',
-                                          treinoId: t.id,
-                                          seriesAtual: dadosTratados['series'],
-                                          cargaAtual: dadosTratados['carga'],
-                                          videoUrlAtual:
-                                              dadosTratados['videoUrl'],
-                                        ),
+                                  Text(
+                                    dadosTratados['exercicios'] ?? 'Exercício',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                                   ),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.delete,
-                                      color: Colors.red,
-                                    ),
-                                    onPressed: () =>
-                                        _workoutService.excluirTreino(
-                                          _alunoSelecionadoId!,
-                                          t.id,
-                                        ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${dadosTratados['grupo'] ?? ''} | Reps: ${dadosTratados['series'] ?? ''} | Carga: ${dadosTratados['carga'] ?? ''}',
+                                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
                                   ),
                                 ],
-                              )
-                            : const Icon(
-                                Icons.info_outline,
-                                color: Colors.blueGrey,
                               ),
-                      ),
+                            ),
+                          ),
+                        ),
+                        
+                        // Bloco 3: Área de Controle do Professor na direita (Se for professor)
+                        if (_eProfessor)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit, color: Colors.orange, size: 22), 
+                                onPressed: () => _abrirConfiguracaoExercicio(dadosTratados['grupo'] ?? '', dadosTratados['exercicios'] ?? '', treinoId: t.id, seriesAtual: dadosTratados['series'], cargaAtual: dadosTratados['carga'], videoUrlAtual: dadosTratados['videoUrl'])
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.red, size: 22), 
+                                onPressed: () => _workoutService.excluirTreino(_alunoSelecionadoId!, t.id)
+                              ),
+                            ],
+                          )
+                        else
+                          // Ícone discreto informativo pro Aluno
+                          const Padding(
+                            padding: EdgeInsets.only(right: 16.0),
+                            child: Icon(Icons.info_outline, color: Colors.blueGrey, size: 20),
+                          ),
+                      ],
                     ),
                   );
                 }).toList(),
@@ -1437,13 +1014,7 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.amber,
-        title: Text(
-          _eProfessor
-              ? (_abaAtualProfessor == 0
-                    ? 'Painel Admin'
-                    : 'Gestão Financeira 💰')
-              : 'Meus Treinos',
-        ),
+        title: Text(_eProfessor ? (_abaAtualProfessor == 0 ? 'Painel Admin' : 'Gestão Financeira 💰') : 'Meus Treinos'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -1459,18 +1030,16 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.all(16.0),
         child: _eProfessor
             ? (_abaAtualProfessor == 0
-                  ? Column(
-                      children: [
-                        _construirAbaTreinos(),
-                        if (_alunoSelecionadoId != null)
-                          _construirListaDeTreinosEfetivos(),
-                      ],
-                    )
-                  : _construirAbaFinanceira())
+                ? Column(
+                    children: [
+                      _construirAbaTreinos(),
+                      if (_alunoSelecionadoId != null) _construirListaDeTreinosEfetivos(),
+                    ],
+                  )
+                : _construirAbaFinanceira())
             : Column(
                 children: [
-                  if (_alunoSelecionadoId != null)
-                    _construirListaDeTreinosEfetivos(),
+                  if (_alunoSelecionadoId != null) _construirListaDeTreinosEfetivos(),
                 ],
               ),
       ),
@@ -1482,14 +1051,8 @@ class _HomeScreenState extends State<HomeScreen> {
               backgroundColor: Colors.black,
               onTap: (index) => setState(() => _abaAtualProfessor = index),
               items: const [
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.fitness_center),
-                  label: 'Treinos',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.monetization_on),
-                  label: 'Financeiro',
-                ),
+                BottomNavigationBarItem(icon: Icon(Icons.fitness_center), label: 'Treinos'),
+                BottomNavigationBarItem(icon: Icon(Icons.monetization_on), label: 'Financeiro'),
               ],
             )
           : null,
