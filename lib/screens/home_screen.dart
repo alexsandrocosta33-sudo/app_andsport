@@ -463,34 +463,30 @@ class _HomeScreenState extends State<HomeScreen> {
     final videoId = YoutubePlayerController.convertUrlToId(url);
     if (videoId == null) return;
 
+    // A configuração para o Autoplay funcionar no Android:
     final playerController = YoutubePlayerController.fromVideoId(
       videoId: videoId,
+      autoPlay: true, // Configuração na raiz do Controller para a v6.0.0
       params: const YoutubePlayerParams(
         showControls: true,
         showFullscreenButton: true,
-        mute: false,
-        autoPlay: true, // Força o play automático no Android e Web
-        loop: true, // Ativa a instrução de loop contínuo
+        mute:
+            true, // OBRIGATÓRIO: O Autoplay só funciona se o vídeo começar MUDO
       ),
     );
 
     showDialog(
       context: context,
-      barrierDismissible:
-          false, // Força o aluno a usar o botão explícito de fechar
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
         backgroundColor: Colors.black,
-        contentPadding: EdgeInsets.zero, // Remove margens internas brancas
-        insetPadding: const EdgeInsets.symmetric(
-          horizontal: 8,
-          vertical: 24,
-        ), // Maximiza largura no Android
+        contentPadding: EdgeInsets.zero,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 24),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             AspectRatio(
-              aspectRatio:
-                  16 / 9, // Mantém proporção perfeita de vídeo widescreen
+              aspectRatio: 16 / 9,
               child: YoutubePlayer(controller: playerController),
             ),
             Container(
@@ -501,25 +497,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton.icon(
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.amber,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                    ),
+                    style: TextButton.styleFrom(foregroundColor: Colors.amber),
                     onPressed: () {
-                      playerController
-                          .close(); // Encerra conexões e streams do IFrame
+                      playerController.close();
                       Navigator.pop(context);
                     },
-                    icon: const Icon(Icons.close, size: 22),
+                    icon: const Icon(Icons.close),
                     label: const Text(
                       'Fechar Vídeo',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
@@ -626,8 +612,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 videoUrl: _videoUrlController.text,
               );
               if (treinoId != null) {
-                await _workoutService.excluirTreino(_alunoSelecionadoId!, t.id);
+                await _workoutService.excluirTreino(
+                  _alunoSelecionadoId!,
+                  treinoId,
+                );
               }
+
               if (!mounted) return;
               Navigator.pop(context);
             },
