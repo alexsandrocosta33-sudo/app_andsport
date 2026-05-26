@@ -15,7 +15,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   // Controles de Texto
   final _grupoController = TextEditingController();
-  final _exerciciosController = TextEditingController();
   final _seriesController = TextEditingController();
   final _cargaController = TextEditingController();
   final _novoNomeController = TextEditingController();
@@ -43,6 +42,10 @@ class _HomeScreenState extends State<HomeScreen> {
   // Controle de busca de alunos
   String _filtroBuscaAlunos = '';
 
+  // Variaveis para o vinculo de exercicio armazenado
+  String? _exercicioSelecionadoCardapio;
+  String _grupoSelecionadoFiltro = 'Peito';
+
   Map<String, double> _valoresPlanosCarregados = {
     'Mensal': 80.0,
     'Trimestral': 220.0,
@@ -63,6 +66,17 @@ class _HomeScreenState extends State<HomeScreen> {
   String _fichaSelecionadaAluno = 'A';
   String _grupoSelecionadoParaNovoExercicio = 'Peito';
   int _abaAtualProfessor = 0;
+
+  final List<String> _gruposMusculares = [
+    'Peito',
+    'Costas',
+    'Pernas',
+    'Ombros',
+    'Bíceps',
+    'Tríceps',
+    'Abdômen',
+    'Cardio',
+  ];
 
   @override
   void initState() {
@@ -137,7 +151,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _grupoController.dispose();
-    _exerciciosController.dispose();
     _seriesController.dispose();
     _cargaController.dispose();
     _novoNomeController.dispose();
@@ -227,7 +240,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Dados do aluno atualizados! 📝'),
+                  content: Text('Dados do aluno updated! 📝'),
                   backgroundColor: Colors.green,
                 ),
               );
@@ -513,7 +526,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Exercício salvo com sucesso! ✔'),
+        content: Text('Exercício salvo na biblioteca! ✔'),
         backgroundColor: Colors.green,
       ),
     );
@@ -528,8 +541,6 @@ class _HomeScreenState extends State<HomeScreen> {
     String? videoUrlAtual,
   }) {
     if (_alunoSelecionadoId == null) return;
-    _grupoController.text = grupo;
-    _exerciciosController.text = exercicio;
     _seriesController.text = seriesAtual ?? '4x10';
     _cargaController.text = cargaAtual != null
         ? cargaAtual.replaceAll(' kg', '')
@@ -551,6 +562,7 @@ class _HomeScreenState extends State<HomeScreen> {
               'Exercício: $exercicio',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
+            const SizedBox(height: 8),
             TextField(
               controller: _seriesController,
               decoration: const InputDecoration(
@@ -563,7 +575,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             TextField(
               controller: _videoUrlController,
-              decoration: const InputDecoration(labelText: 'Link do Vídeo'),
+              decoration: const InputDecoration(
+                labelText: 'Link do Vídeo (Opcional se já cadastrado)',
+              ),
             ),
           ],
         ),
@@ -577,8 +591,8 @@ class _HomeScreenState extends State<HomeScreen> {
               await _workoutService.salvarTreino(
                 alunoId: _alunoSelecionadoId!,
                 ficha: _fichaSelecionadaAluno,
-                grupoMuscular: _grupoController.text,
-                nomeExercicios: _exerciciosController.text,
+                grupoMuscular: grupo,
+                nomeExercicios: exercicio,
                 seriesRepeticoes: _seriesController.text,
                 carga: _cargaController.text.isEmpty
                     ? '---'
@@ -596,7 +610,7 @@ class _HomeScreenState extends State<HomeScreen> {
               if (!mounted) return;
               Navigator.pop(context);
             },
-            child: const Text('Adicionar'),
+            child: const Text('Adicionar ao Aluno'),
           ),
         ],
       ),
@@ -711,19 +725,145 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _removerExercicioDoCardapio(String docId) async {
+    await FirebaseFirestore.instance
+        .collection('exercicios')
+        .doc(docId)
+        .delete();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Exercício removido da biblioteca.'),
+        backgroundColor: Colors.orange,
+      ),
+    );
+  }
+
   Color _obterCorStatus(String status) {
     if (status == 'Pago') return Colors.green;
     if (status == 'Atrasado') return Colors.red;
     return Colors.orange;
   }
 
-  // ================== ABAS DO PROFESSOR CONSTRUÍDAS DO ZERO ==================
+  // ================== ABAS DO PROFESSOR ATUALIZADAS ==================
 
   Widget _construirAbaTreinos() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Card de Cadastro de Novo Aluno
+        // 1. GERENCIADOR DA BIBLIOTECA DE EXERCÍCIOS
+        Card(
+          elevation: 2,
+          color: Colors.white,
+          child: ExpansionTile(
+            leading: const Icon(Icons.bookmark, color: Colors.blueAccent),
+            title: const Text(
+              'Gerenciar Biblioteca de Exercícios',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      value: _grupoSelecionadoParaNovoExercicio,
+                      decoration: const InputDecoration(
+                        labelText: 'Grupo Muscular',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: _gruposMusculares
+                          .map(
+                            (g) => DropdownMenuItem(value: g, child: Text(g)),
+                          )
+                          .toList(),
+                      onChanged: (val) => setState(
+                        () => _grupoSelecionadoParaNovoExercicio = val!,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _novoExercicioCardapioController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nome do Exercício (Ex: Supino Reto)',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _videoUrlController,
+                      decoration: const InputDecoration(
+                        labelText: 'Link do Vídeo no YouTube',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blueAccent,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(42),
+                      ),
+                      onPressed: _adicionarExercicioAoCardapio,
+                      child: const Text('Salvar na Biblioteca'),
+                    ),
+                    const Divider(height: 24),
+                    const Text(
+                      'Exercícios Salvos:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 6),
+
+                    // Stream interna para ver e gerenciar os itens cadastrados
+                    StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('exercicios')
+                          .orderBy('criadoEm', descending: true)
+                          .snapshots(),
+                      builder: (context, snap) {
+                        if (!snap.hasData) return const SizedBox();
+                        var lista = snap.data!.docs;
+                        if (lista.isEmpty)
+                          return const Text(
+                            'Nenhum exercício armazenado ainda.',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          );
+                        return Container(
+                          maxHeight: 180,
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: lista.length,
+                            itemBuilder: (context, i) {
+                              var item =
+                                  lista[i].data() as Map<String, dynamic>;
+                              return ListTile(
+                                dense: true,
+                                title: Text(item['nome'] ?? ''),
+                                subtitle: Text(item['grupo'] ?? ''),
+                                trailing: IconButton(
+                                  icon: const Icon(
+                                    Icons.delete,
+                                    color: Colors.red,
+                                    size: 18,
+                                  ),
+                                  onPressed: () =>
+                                      _removerExercicioDoCardapio(lista[i].id),
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // 2. CARD DE MATRÍCULA
         Card(
           elevation: 2,
           color: Colors.white,
@@ -780,7 +920,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 12),
 
-        // Campo de busca de alunos
+        // 3. BUSCA DE ALUNOS
         TextField(
           onChanged: (val) =>
               setState(() => _filtroBuscaAlunos = val.toLowerCase().trim()),
@@ -800,7 +940,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 8),
 
-        // Stream de Alunos vindos do Firestore
+        // Lista de Alunos
         StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance.collection('usuarios').snapshots(),
           builder: (context, snapshot) {
@@ -849,6 +989,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         _alunoSelecionadoId = doc.id;
                         _alunoSelecionadoNome = dados['nome'];
                         _alunoSelecionadoEmail = dados['email'];
+                        _exercicioSelecionadoCardapio =
+                            null; // Reseta selecao anterior
                       });
                     },
                     onLongPress: () {
@@ -866,10 +1008,12 @@ class _HomeScreenState extends State<HomeScreen> {
           },
         ),
         const SizedBox(height: 16),
+
+        // 4. ÁREA DE ASSOCIAÇÃO INTELIGENTE DE TREINO
         if (_alunoSelecionadoId != null) ...[
           Divider(color: Colors.grey[400]),
           Text(
-            'Montando treino para: $_alunoSelecionadoNome',
+            'Vinculando Exercício para: $_alunoSelecionadoNome',
             style: const TextStyle(
               fontWeight: FontWeight.bold,
               color: Colors.blueGrey,
@@ -878,7 +1022,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 8),
 
-          // Card de atalho rápido para vincular exercícios
           Card(
             color: Colors.white,
             child: Padding(
@@ -887,36 +1030,95 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Vincular Exercício Direto',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _grupoController,
-                    decoration: const InputDecoration(
-                      labelText: 'Grupo Muscular (Ex: Peito)',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _exerciciosController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nome do Exercício',
-                      border: OutlineInputBorder(),
+                    'Escolha pela Biblioteca Armazenada',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blueAccent,
                     ),
                   ),
                   const SizedBox(height: 12),
-                  ElevatedButton(
+
+                  // Filtro do grupo muscular para buscar no cardápio
+                  DropdownButtonFormField<String>(
+                    value: _grupoSelecionadoFiltro,
+                    decoration: const InputDecoration(
+                      labelText: '1. Selecione o Grupo Muscular',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: _gruposMusculares
+                        .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                        .toList(),
+                    onChanged: (val) {
+                      setState(() {
+                        _grupoSelecionadoFiltro = val!;
+                        _exercicioSelecionadoCardapio = null;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Dropdown dinâmico que carrega os exercícios cadastrados na biblioteca daquele grupo
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('exercicios')
+                        .where('grupo', isEqualTo: _grupoSelecionadoFiltro)
+                        .snapshots(),
+                    builder: (context, snapEx) {
+                      if (!snapEx.hasData)
+                        return const LinearProgressIndicator();
+                      var docsEx = snapEx.data!.docs;
+
+                      if (docsEx.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8.0),
+                          child: Text(
+                            'Nenhum exercício deste grupo salvo na biblioteca.',
+                            style: TextStyle(color: Colors.red, fontSize: 13),
+                          ),
+                        );
+                      }
+
+                      return DropdownButtonFormField<String>(
+                        value: _exercicioSelecionadoCardapio,
+                        hint: const Text('2. Escolha o Exercício'),
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                        ),
+                        items: docsEx.map((de) {
+                          var exData = de.data() as Map<String, dynamic>;
+                          return DropdownMenuItem<String>(
+                            value: "${exData['nome']}|||${exData['videoUrl']}",
+                            child: Text(exData['nome'] ?? ''),
+                          );
+                        }).toList(),
+                        onChanged: (val) =>
+                            setState(() => _exercicioSelecionadoCardapio = val),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.black,
                       foregroundColor: Colors.amber,
+                      disabledBackgroundColor: Colors.grey[300],
                     ),
-                    onPressed: () => _abrirConfiguracaoExercicio(
-                      _grupoController.text.trim(),
-                      _exerciciosController.text.trim(),
-                    ),
-                    child: const Text('Configurar Séries e Carga'),
+                    onPressed: _exercicioSelecionadoCardapio == null
+                        ? null
+                        : () {
+                            var partes = _exercicioSelecionadoCardapio!.split(
+                              "|||",
+                            );
+                            String nomeEx = partes[0];
+                            String urlVid = partes[1];
+                            _abrirConfiguracaoExercicio(
+                              _grupoSelecionadoFiltro,
+                              nomeEx,
+                              videoUrlAtual: urlVid,
+                            );
+                          },
+                    icon: const Icon(Icons.add_task),
+                    label: const Text('Definir Cargas e Séries'),
                   ),
                 ],
               ),
@@ -1005,7 +1207,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ================== FIM DAS NOVAS ABAS ==================
+  // ================== FIM DAS ABAS DO PROFESSOR ==================
 
   @override
   Widget build(BuildContext context) {
