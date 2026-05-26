@@ -240,7 +240,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Dados do aluno updated! 📝'),
+                  content: Text('Dados do aluno atualizados! 📝'),
                   backgroundColor: Colors.green,
                 ),
               );
@@ -576,7 +576,7 @@ class _HomeScreenState extends State<HomeScreen> {
             TextField(
               controller: _videoUrlController,
               decoration: const InputDecoration(
-                labelText: 'Link do Vídeo (Opcional se já cadastrado)',
+                labelText: 'Link do Vídeo (Opcional)',
               ),
             ),
           ],
@@ -744,7 +744,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Colors.orange;
   }
 
-  // ================== ABAS DO PROFESSOR ATUALIZADAS ==================
+  // ================== ABAS DO PROFESSOR CONSTRUÍDAS ==================
 
   Widget _construirAbaTreinos() {
     return Column(
@@ -814,7 +814,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 6),
 
-                    // Stream interna para ver e gerenciar os itens cadastrados
+                    // CORREÇÃO APLICADA: Substituído Container por SizedBox para evitar erro de compilação
                     StreamBuilder<QuerySnapshot>(
                       stream: FirebaseFirestore.instance
                           .collection('exercicios')
@@ -828,8 +828,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             'Nenhum exercício armazenado ainda.',
                             style: TextStyle(fontSize: 12, color: Colors.grey),
                           );
-                        return Container(
-                          maxHeight: 180,
+                        return SizedBox(
+                          height: 180,
                           child: ListView.builder(
                             shrinkWrap: true,
                             itemCount: lista.length,
@@ -989,8 +989,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         _alunoSelecionadoId = doc.id;
                         _alunoSelecionadoNome = dados['nome'];
                         _alunoSelecionadoEmail = dados['email'];
-                        _exercicioSelecionadoCardapio =
-                            null; // Reseta selecao anterior
+                        _exercicioSelecionadoCardapio = null;
                       });
                     },
                     onLongPress: () {
@@ -1038,7 +1037,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Filtro do grupo muscular para buscar no cardápio
                   DropdownButtonFormField<String>(
                     value: _grupoSelecionadoFiltro,
                     decoration: const InputDecoration(
@@ -1057,7 +1055,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 10),
 
-                  // Dropdown dinâmico que carrega os exercícios cadastrados na biblioteca daquele grupo
                   StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance
                         .collection('exercicios')
