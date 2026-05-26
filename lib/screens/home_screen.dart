@@ -14,7 +14,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // Controles de Texto
+  // Controles de Texto existentes
   final _grupoController = TextEditingController();
   final _exerciciosController = TextEditingController();
   final _seriesController = TextEditingController();
@@ -227,7 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Dados do aluno updated! 📝'),
+                  content: Text('Dados do aluno atualizados! 📝'),
                   backgroundColor: Colors.green,
                 ),
               );
@@ -456,20 +456,21 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- FUNÇÃO ASSISTIR VÍDEO EXCELENTE COM AUTOPLAY E LAYOUT EXPANDIDO (SEM ERRO DE COMPILAÇÃO) ---
+  // --- TRECHO DO VIDEO COM AUTOPLAY E MUTE ATUALIZADOS PARA A VERSÃO 6.0.0 ---
   void _assistirVideo(String? url) {
     if (url == null || url.isEmpty || url == '---') return;
 
     final videoId = YoutubePlayerController.convertUrlToId(url);
     if (videoId == null) return;
 
-    // Ajustado para os parâmetros aceitos na v6.0.0
     final playerController = YoutubePlayerController.fromVideoId(
       videoId: videoId,
+      autoPlay: true, // Garante o disparo automático
       params: const YoutubePlayerParams(
         showControls: true,
         showFullscreenButton: true,
-        mute: true, // Obrigatório para o Android aceitar a inicialização direta
+        mute:
+            true, // Mute obrigatório para burlar o bloqueio de autoplay do Android
       ),
     );
 
@@ -555,7 +556,7 @@ class _HomeScreenState extends State<HomeScreen> {
         .delete();
   }
 
-  // --- CORREÇÃO DEFINITIVA: RESOLVIDO O SEU ERRO DA VARIÁVEL 't' ---
+  // --- TRECHO DE CONFIGURAÇÃO DE EXERCÍCIO CORRIGIDO SEM A VARIÁVEL 't' ---
   void _abrirConfiguracaoExercicio(
     String grupo,
     String exercicio, {
@@ -620,7 +621,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 videoUrl: _videoUrlController.text,
               );
 
-              // CORREÇÃO EFETUADA AQUI:
+              // Correção aplicada: usando treinoId no lugar de t.id
               if (treinoId != null) {
                 await _workoutService.excluirTreino(
                   _alunoSelecionadoId!,
@@ -818,6 +819,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Se você tiver as implementações completas das abas visuais abaixo,
+  // elas se conectarão diretamente aqui no build:
   Widget _construirAbaTreinos() {
     return Container();
   }
