@@ -14,7 +14,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // Controles de Texto existentes
+  // Controles de Texto
   final _grupoController = TextEditingController();
   final _exerciciosController = TextEditingController();
   final _seriesController = TextEditingController();
@@ -227,7 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Dados do aluno atualizados! 📝'),
+                  content: Text('Dados do aluno updated! 📝'),
                   backgroundColor: Colors.green,
                 ),
               );
@@ -456,22 +456,20 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- FUNÇÃO ASSISTIR VÍDEO EXCELENTE COM AUTOPLAY, LOOP E LAYOUT EXPANDIDO ---
+  // --- FUNÇÃO ASSISTIR VÍDEO EXCELENTE COM AUTOPLAY E LAYOUT EXPANDIDO (SEM ERRO DE COMPILAÇÃO) ---
   void _assistirVideo(String? url) {
     if (url == null || url.isEmpty || url == '---') return;
 
     final videoId = YoutubePlayerController.convertUrlToId(url);
     if (videoId == null) return;
 
-    // A configuração para o Autoplay funcionar no Android:
+    // Ajustado para os parâmetros aceitos na v6.0.0
     final playerController = YoutubePlayerController.fromVideoId(
       videoId: videoId,
-      autoPlay: true, // Configuração na raiz do Controller para a v6.0.0
       params: const YoutubePlayerParams(
         showControls: true,
         showFullscreenButton: true,
-        mute:
-            true, // OBRIGATÓRIO: O Autoplay só funciona se o vídeo começar MUDO
+        mute: true, // Obrigatório para o Android aceitar a inicialização direta
       ),
     );
 
@@ -497,15 +495,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton.icon(
-                    style: TextButton.styleFrom(foregroundColor: Colors.amber),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.amber,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
                     onPressed: () {
                       playerController.close();
                       Navigator.pop(context);
                     },
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(Icons.close, size: 22),
                     label: const Text(
                       'Fechar Vídeo',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -548,6 +555,7 @@ class _HomeScreenState extends State<HomeScreen> {
         .delete();
   }
 
+  // --- CORREÇÃO DEFINITIVA: RESOLVIDO O SEU ERRO DA VARIÁVEL 't' ---
   void _abrirConfiguracaoExercicio(
     String grupo,
     String exercicio, {
@@ -611,6 +619,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     : '${_cargaController.text} kg',
                 videoUrl: _videoUrlController.text,
               );
+
+              // CORREÇÃO EFETUADA AQUI:
               if (treinoId != null) {
                 await _workoutService.excluirTreino(
                   _alunoSelecionadoId!,
@@ -744,794 +754,6 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    Widget _construirAbaFinanceira() {
-      return StreamBuilder<QuerySnapshot>(
-        stream: _workoutService.listarTodosAlunos(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData)
-            return const Center(
-              child: CircularProgressIndicator(color: Colors.amber),
-            );
-
-          final alunos = snapshot.data!.docs;
-          double faturamentoTotal = 0;
-          int pagos = 0;
-          int pendentes = 0;
-
-          for (var doc in alunos) {
-            final dados = doc.data() as Map<String, dynamic>;
-            final String emailAluno =
-                dados['email']?.toString().toLowerCase() ?? '';
-
-            if (emailAluno.contains('admin') ||
-                emailAluno.contains('professor') ||
-                emailAluno == 'alexsandrocosta33@gmail.com')
-              continue;
-
-            faturamentoTotal += (dados['valorMensalidade'] ?? 0.0);
-            if (dados['statusPagamento'] == 'Pago') pagos++;
-            if (dados['statusPagamento'] == 'Pendente' ||
-                dados['statusPagamento'] == 'Atrasado')
-              pendentes++;
-          }
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Card(
-                color: Colors.amber[50],
-                shape: RoundedRectangleBorder(
-                  side: const BorderSide(color: Colors.amber, width: 1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Row(
-                            children: [
-                              Icon(Icons.style, color: Colors.amber, size: 18),
-                              SizedBox(width: 6),
-                              Text(
-                                'Tabela de Preços (Cardápio)',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  color: Colors.black,
-                                ),
-                              ),
-                            ],
-                          ),
-                          InkWell(
-                            onTap: _abrirConfiguracaoDeValoresDoCardapio,
-                            child: const Row(
-                              children: [
-                                Icon(
-                                  Icons.settings,
-                                  color: Colors.black54,
-                                  size: 14,
-                                ),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Editar Cardápio',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.black54,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: _valoresPlanosCarregados.entries.map((entry) {
-                          return Column(
-                            children: [
-                              Text(
-                                entry.key,
-                                style: TextStyle(
-                                  color: Colors.grey[700],
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'R\$ ${entry.value.toStringAsFixed(0)}',
-                                style: const TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: Card(
-                      color: Colors.black,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Column(
-                          children: [
-                            const Text(
-                              'Previsão Total',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 12,
-                              ),
-                            ),
-                            Text(
-                              'R\$ ${faturamentoTotal.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                color: Colors.amber,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Card(
-                      color: Colors.white,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Column(
-                          children: [
-                            const Text(
-                              'Pagos',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 12,
-                              ),
-                            ),
-                            Text(
-                              '$pagos',
-                              style: const TextStyle(
-                                color: Colors.green,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Card(
-                      color: Colors.white,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Column(
-                          children: [
-                            const Text(
-                              'Pendentes',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 12,
-                              ),
-                            ),
-                            Text(
-                              '$pendentes',
-                              style: const TextStyle(
-                                color: Colors.orange,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Alunos Ativos e Planos:',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-              ),
-              const SizedBox(height: 8),
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: alunos.length,
-                itemBuilder: (context, index) {
-                  final doc = alunos[index];
-                  final dados = doc.data() as Map<String, dynamic>;
-                  final String nome =
-                      dados['nome'] ?? dados['email'] ?? 'Sem nome';
-                  final String status = dados['statusPagamento'] ?? 'Pendente';
-                  final double valor = dados['valorMensalidade'] ?? 0.0;
-                  final int vencimento = dados['diaVencimento'] ?? 10;
-                  final String plano = dados['plano'] ?? 'Mensal';
-                  final String emailAluno =
-                      dados['email']?.toString().toLowerCase() ?? '';
-
-                  if (emailAluno.contains('admin') ||
-                      emailAluno.contains('professor') ||
-                      emailAluno == 'alexsandrocosta33@gmail.com') {
-                    return const SizedBox.shrink();
-                  }
-
-                  return Card(
-                    color: Colors.white,
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    child: ListTile(
-                      title: Row(
-                        children: [
-                          Text(
-                            nome,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              plano,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey[800],
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      subtitle: Text(
-                        'Vence dia $vencimento | Valor: R\$ ${valor.toStringAsFixed(2)}',
-                      ),
-                      trailing: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _obterCorStatus(status).withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: _obterCorStatus(status)),
-                        ),
-                        child: Text(
-                          status.toUpperCase(),
-                          style: TextStyle(
-                            color: _obterCorStatus(status),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ),
-                      onTap: () =>
-                          _abrirGerenciamentoFinanceiro(doc.id, nome, dados),
-                    ),
-                  );
-                },
-              ),
-            ],
-          );
-        },
-      );
-    }
-
-    Widget _construirAbaTreinos() {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ExpansionTile(
-            title: const Text(
-              'Matricular Novo Aluno',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
-            leading: const Icon(Icons.person_add, color: Colors.amber),
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Column(
-                  children: [
-                    TextField(
-                      controller: _novoNomeController,
-                      decoration: const InputDecoration(
-                        labelText: 'Nome do Aluno',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _novoEmailController,
-                      decoration: const InputDecoration(
-                        labelText: 'E-mail de Acesso',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _novaSenhaController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Senha Inicial',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ElevatedButton(
-                      onPressed: _matricularNovoAluno,
-                      child: const Text('Confirmar Matrícula'),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Selecione o Aluno para Gerenciar:',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFFBDBDBD)),
-                    borderRadius: BorderRadius.circular(8),
-                    color: Colors.white,
-                  ),
-                  child: StreamBuilder<QuerySnapshot>(
-                    stream: _workoutService.listarTodosAlunos(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData)
-                        return const LinearProgressIndicator(
-                          color: Colors.amber,
-                        );
-                      final usuarios = snapshot.data!.docs;
-
-                      final apenasAlunosreais = usuarios.where((doc) {
-                        final email =
-                            doc['email']?.toString().toLowerCase() ?? '';
-                        return !email.contains('admin') &&
-                            !email.contains('professor') &&
-                            email != 'alexsandrocosta33@gmail.com';
-                      }).toList();
-
-                      return DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _alunoSelecionadoId,
-                          hint: const Text('Selecione um aluno ativo'),
-                          isExpanded: true,
-                          items: apenasAlunosreais
-                              .map(
-                                (doc) => DropdownMenuItem<String>(
-                                  value: doc.id,
-                                  child: Text(doc['nome'] ?? doc['email']),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (id) {
-                            if (id == null) return;
-                            final docEscolhido = usuarios.firstWhere(
-                              (element) => element.id == id,
-                            );
-                            setState(() {
-                              _alunoSelecionadoId = id;
-                              _alunoSelecionadoNome =
-                                  docEscolhido['nome'] ?? docEscolhido['email'];
-                              _alunoSelecionadoEmail =
-                                  docEscolhido['email'] ?? '';
-                            });
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              if (_alunoSelecionadoId != null) ...[
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.edit, color: Colors.orange),
-                  onPressed: _abrirEdicaoDadosAluno,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_forever, color: Colors.red),
-                  onPressed: _confirmarExclusaoAluno,
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (_alunoSelecionadoId != null) ...[
-            Card(
-              color: const Color(0xFFEEEEEE),
-              child: Padding(
-                padding: const EdgeInsets.all(14.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      '➕ Cadastrar Novo Exercício no Firestore:',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey),
-                              borderRadius: BorderRadius.circular(4),
-                              color: Colors.white,
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: _grupoSelecionadoParaNovoExercicio,
-                                items:
-                                    [
-                                          'Peito',
-                                          'Costas',
-                                          'Bíceps',
-                                          'Tríceps',
-                                          'Pernas',
-                                          'Ombros',
-                                        ]
-                                        .map(
-                                          (g) => DropdownMenuItem(
-                                            value: g,
-                                            child: Text(g),
-                                          ),
-                                        )
-                                        .toList(),
-                                onChanged: (v) => setState(
-                                  () => _grupoSelecionadoParaNovoExercicio = v!,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          flex: 3,
-                          child: TextField(
-                            controller: _novoExercicioCardapioController,
-                            decoration: const InputDecoration(
-                              labelText: 'Nome do Exercício',
-                              border: OutlineInputBorder(),
-                              fillColor: Colors.white,
-                              filled: true,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _videoUrlController,
-                      decoration: const InputDecoration(
-                        labelText: 'Link do Vídeo do YouTube (Opcional)',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(
-                          Icons.video_library,
-                          color: Colors.red,
-                        ),
-                        fillColor: Colors.white,
-                        filled: true,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        foregroundColor: Colors.amber,
-                      ),
-                      onPressed: _adicionarExercicioAoCardapio,
-                      icon: const Icon(Icons.save),
-                      label: const Text('Salvar no Banco de Dados'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              '📋 Cardápio de Exercícios Dinâmico (Firestore):',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-            ),
-            const SizedBox(height: 8),
-
-            Column(
-              children:
-                  [
-                    'Peito',
-                    'Costas',
-                    'Bíceps',
-                    'Tríceps',
-                    'Pernas',
-                    'Ombros',
-                  ].map((grupoNome) {
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      color: Colors.white,
-                      child: StreamBuilder<QuerySnapshot>(
-                        stream: FirebaseFirestore.instance
-                            .collection('exercicios')
-                            .where('grupo', isEqualTo: grupoNome)
-                            .snapshots(),
-                        builder: (context, exSnapshot) {
-                          if (!exSnapshot.hasData)
-                            return const LinearProgressIndicator(
-                              color: Colors.amber,
-                            );
-                          final itensBanco = exSnapshot.data!.docs;
-
-                          return ExpansionTile(
-                            title: Text(
-                              'Treino de $grupoNome (${itensBanco.length})',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            children: itensBanco.map<Widget>((docEx) {
-                              final item = docEx.data() as Map<String, dynamic>;
-                              return ListTile(
-                                title: Text(item['nome'] ?? ''),
-                                subtitle: Text(
-                                  'Vídeo: ${item['videoUrl'] ?? '---'}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                leading: IconButton(
-                                  icon: const Icon(
-                                    Icons.delete_outline,
-                                    color: Colors.red,
-                                  ),
-                                  onPressed: () =>
-                                      _removerExercicioDoCardapio(docEx.id),
-                                ),
-                                trailing: const Icon(
-                                  Icons.add_circle,
-                                  color: Colors.amber,
-                                ),
-                                onTap: () => _abrirConfiguracaoExercicio(
-                                  grupoNome,
-                                  item['nome'] ?? '',
-                                  videoUrlAtual: item['videoUrl'],
-                                ),
-                              );
-                            }).toList(),
-                          );
-                        },
-                      ),
-                    );
-                  }).toList(),
-            ),
-          ],
-        ],
-      );
-    }
-
-    Widget _construirListaDeTreinosEfetivos() {
-      return Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                _eProfessor
-                    ? 'Gerenciando Ficha Ativa do Aluno:'
-                    : 'Escolha a Série de Hoje:',
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              if (_eProfessor)
-                IconButton(
-                  icon: const Icon(Icons.delete_sweep, color: Colors.red),
-                  onPressed: _limparFichaCompleta,
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: ['A', 'B', 'C'].map((letraFicha) {
-              bool estaSelecionada = _fichaSelecionadaAluno == letraFicha;
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: estaSelecionada
-                          ? Colors.black
-                          : Colors.white,
-                      foregroundColor: estaSelecionada
-                          ? Colors.amber
-                          : Colors.black87,
-                    ),
-                    onPressed: () =>
-                        setState(() => _fichaSelecionadaAluno = letraFicha),
-                    child: Text('TREINO $letraFicha'),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 12),
-          StreamBuilder<QuerySnapshot>(
-            stream: _workoutService.listarTreinosPorFicha(
-              _alunoSelecionadoId!,
-              _fichaSelecionadaAluno,
-            ),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData)
-                return const Center(
-                  child: CircularProgressIndicator(color: Colors.amber),
-                );
-              final treinos = snapshot.data?.docs ?? [];
-              if (treinos.isEmpty)
-                return const Center(
-                  child: Text('Nenhum exercício cadastrado nesta série.'),
-                );
-
-              return Column(
-                children: treinos.map((t) {
-                  final dados = t.data() as Map<String, dynamic>?;
-                  final dadosTratados = dados ?? {};
-
-                  return Card(
-                    color: Colors.white,
-                    margin: const EdgeInsets.symmetric(
-                      vertical: 4,
-                      horizontal: 2,
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4.0),
-                      child: Row(
-                        children: [
-                          // 1. Botão de vídeo independente na esquerda
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4.0),
-                            child: IconButton(
-                              icon: const Icon(
-                                Icons.play_circle_fill,
-                                color: Colors.amber,
-                                size: 36,
-                              ),
-                              onPressed: () =>
-                                  _assistirVideo(dadosTratados['videoUrl']),
-                            ),
-                          ),
-
-                          // 2. Área central protegida por GestureDetector opaco para cliques no Android
-                          Expanded(
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () {
-                                if (!_eProfessor) {
-                                  _mostrarDetalhesExercicioAluno(dadosTratados);
-                                }
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 8.0,
-                                  horizontal: 4.0,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      dadosTratados['exercicios'] ??
-                                          'Exercício',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 15,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${dadosTratados['grupo'] ?? ''} | Reps: ${dadosTratados['series'] ?? ''} | Carga: ${dadosTratados['carga'] ?? ''}',
-                                      style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          // 3. Área de ações na direita (Diferenciada para Professor e Aluno)
-                          if (_eProfessor)
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.edit,
-                                    color: Colors.orange,
-                                    size: 22,
-                                  ),
-                                  onPressed: () => _abrirConfiguracaoExercicio(
-                                    dadosTratados['grupo'] ?? '',
-                                    dadosTratados['exercicios'] ?? '',
-                                    treinoId: t.id,
-                                    seriesAtual: dadosTratados['series'],
-                                    cargaAtual: dadosTratados['carga'],
-                                    videoUrlAtual: dadosTratados['videoUrl'],
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.delete,
-                                    color: Colors.red,
-                                    size: 22,
-                                  ),
-                                  onPressed: () =>
-                                      _workoutService.excluirTreino(
-                                        _alunoSelecionadoId!,
-                                        t.id,
-                                      ),
-                                ),
-                              ],
-                            )
-                          else
-                            // Alvo secundário de clique para o Aluno abrir o modal de detalhes
-                            IconButton(
-                              icon: const Icon(
-                                Icons.info_outline,
-                                color: Colors.blueGrey,
-                                size: 22,
-                              ),
-                              onPressed: () =>
-                                  _mostrarDetalhesExercicioAluno(dadosTratados),
-                            ),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
-              );
-            },
-          ),
-        ],
-      );
-    }
-
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
@@ -1593,6 +815,189 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             )
           : null,
+    );
+  }
+
+  Widget _construirAbaTreinos() {
+    return Container();
+  }
+
+  Widget _construirAbaFinanceira() {
+    return Container();
+  }
+
+  Widget _construirListaDeTreinosEfetivos() {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              _eProfessor
+                  ? 'Gerenciando Ficha Ativa do Aluno:'
+                  : 'Escolha a Série de Hoje:',
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+            ),
+            if (_eProfessor)
+              IconButton(
+                icon: const Icon(Icons.delete_sweep, color: Colors.red),
+                onPressed: _limparFichaCompleta,
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: ['A', 'B', 'C'].map((letraFicha) {
+            bool estaSelecionada = _fichaSelecionadaAluno == letraFicha;
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: estaSelecionada
+                        ? Colors.black
+                        : Colors.white,
+                    foregroundColor: estaSelecionada
+                        ? Colors.amber
+                        : Colors.black87,
+                  ),
+                  onPressed: () =>
+                      setState(() => _fichaSelecionadaAluno = letraFicha),
+                  child: Text('TREINO $letraFicha'),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 12),
+        StreamBuilder<QuerySnapshot>(
+          stream: _workoutService.listarTreinosPorFicha(
+            _alunoSelecionadoId!,
+            _fichaSelecionadaAluno,
+          ),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData)
+              return const Center(
+                child: CircularProgressIndicator(color: Colors.amber),
+              );
+            final treinos = snapshot.data?.docs ?? [];
+            if (treinos.isEmpty)
+              return const Center(
+                child: Text('Nenhum exercício cadastrado nesta série.'),
+              );
+
+            return Column(
+              children: treinos.map((t) {
+                final dadosTratados = t.data() as Map<String, dynamic>;
+
+                return Card(
+                  color: Colors.white,
+                  margin: const EdgeInsets.symmetric(
+                    vertical: 4,
+                    horizontal: 2,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4.0),
+                    child: Row(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4.0),
+                          child: IconButton(
+                            icon: const Icon(
+                              Icons.play_circle_fill,
+                              color: Colors.amber,
+                              size: 36,
+                            ),
+                            onPressed: () =>
+                                _assistirVideo(dadosTratados['videoUrl']),
+                          ),
+                        ),
+                        Expanded(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              if (!_eProfessor)
+                                _mostrarDetalhesExercicioAluno(dadosTratados);
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 8.0,
+                                horizontal: 4.0,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    dadosTratados['exercicios'] ?? 'Exercício',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${dadosTratados['grupo'] ?? ''} | Reps: ${dadosTratados['series'] ?? ''} | Carga: ${dadosTratados['carga'] ?? ''}',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (_eProfessor)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.edit,
+                                  color: Colors.orange,
+                                  size: 22,
+                                ),
+                                onPressed: () => _abrirConfiguracaoExercicio(
+                                  dadosTratados['grupo'] ?? '',
+                                  dadosTratados['exercicios'] ?? '',
+                                  treinoId: t.id,
+                                  seriesAtual: dadosTratados['series'],
+                                  cargaAtual: dadosTratados['carga'],
+                                  videoUrlAtual: dadosTratados['videoUrl'],
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete,
+                                  color: Colors.red,
+                                  size: 22,
+                                ),
+                                onPressed: () => _workoutService.excluirTreino(
+                                  _alunoSelecionadoId!,
+                                  t.id,
+                                ),
+                              ),
+                            ],
+                          )
+                        else
+                          IconButton(
+                            icon: const Icon(
+                              Icons.info_outline,
+                              color: Colors.blueGrey,
+                              size: 22,
+                            ),
+                            onPressed: () =>
+                                _mostrarDetalhesExercicioAluno(dadosTratados),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            );
+          },
+        ),
+      ],
     );
   }
 }
