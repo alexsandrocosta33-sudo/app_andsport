@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../services/auth_service.dart';
 import '../services/workout_service.dart';
@@ -14,7 +13,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // Controles de Texto existentes
+  // Controles de Texto
   final _grupoController = TextEditingController();
   final _exerciciosController = TextEditingController();
   final _seriesController = TextEditingController();
@@ -37,11 +36,13 @@ class _HomeScreenState extends State<HomeScreen> {
   final _editSemestralController = TextEditingController();
   final _editAnualController = TextEditingController();
 
-  // CONTROLES ADICIONADOS PARA EDIÇÃO DE ALUNO EXISTENTE
+  // CONTROLES PARA EDIÇÃO DE ALUNO EXISTENTE
   final _editarNomeAlunoController = TextEditingController();
   final _editarEmailAlunoController = TextEditingController();
 
-  // Valores Locais de Backup
+  // Controle de busca de alunos
+  String _filtroBuscaAlunos = '';
+
   Map<String, double> _valoresPlanosCarregados = {
     'Mensal': 80.0,
     'Trimestral': 220.0,
@@ -61,7 +62,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _fichaSelecionadaAluno = 'A';
   String _grupoSelecionadoParaNovoExercicio = 'Peito';
-
   int _abaAtualProfessor = 0;
 
   @override
@@ -283,7 +283,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   .collection('usuarios')
                   .doc(idParaDeletar)
                   .delete();
-
               if (!mounted) return;
               Navigator.pop(context);
             },
@@ -292,36 +291,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
-  }
-
-  Future<void> _registrarPagamentoNoBancoInterno({
-    required String alunoId,
-    required double valorPago,
-    required String plano,
-    required int diaVencimento,
-  }) async {
-    final agora = DateTime.now();
-
-    await FirebaseFirestore.instance
-        .collection('usuarios')
-        .doc(alunoId)
-        .collection('pagamentos')
-        .add({
-          'valorPago': valorPago,
-          'plano': plano,
-          'dataPagamento': Timestamp.fromDate(agora),
-          'mesReferencia': '${agora.month}/${agora.year}',
-        });
-
-    await FirebaseFirestore.instance
-        .collection('usuarios')
-        .doc(alunoId)
-        .update({
-          'statusPagamento': 'Pago',
-          'valorMensalidade': valorPago,
-          'diaVencimento': diaVencimento,
-          'plano': plano,
-        });
   }
 
   void _abrirConfiguracaoDeValoresDoCardapio() {
@@ -429,6 +398,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 controller: _vencimentoController,
                 decoration: const InputDecoration(labelText: 'Vencimento'),
               ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                value: _statusPagamentoSelecionado,
+                items: ['Pago', 'Pendente', 'Atrasado']
+                    .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                    .toList(),
+                onChanged: (v) =>
+                    setPopupState(() => _statusPagamentoSelecionado = v!),
+              ),
             ],
           ),
           actions: [
@@ -456,7 +434,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- TRECHO DO VIDEO COM AUTOPLAY E MUTE ATUALIZADOS PARA A VERSÃO 6.0.0 ---
   void _assistirVideo(String? url) {
     if (url == null || url.isEmpty || url == '---') return;
 
@@ -465,12 +442,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final playerController = YoutubePlayerController.fromVideoId(
       videoId: videoId,
-      autoPlay: true, // Garante o disparo automático
+      autoPlay: true,
       params: const YoutubePlayerParams(
         showControls: true,
         showFullscreenButton: true,
-        mute:
-            true, // Mute obrigatório para burlar o bloqueio de autoplay do Android
+        mute: true,
       ),
     );
 
@@ -496,13 +472,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton.icon(
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.amber,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                    ),
+                    style: TextButton.styleFrom(foregroundColor: Colors.amber),
                     onPressed: () {
                       playerController.close();
                       Navigator.pop(context);
@@ -543,20 +513,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Exercício e vídeo salvos no Firestore com sucesso! ✔'),
+        content: Text('Exercício salvo com sucesso! ✔'),
         backgroundColor: Colors.green,
       ),
     );
   }
 
-  void _removerExercicioDoCardapio(String docId) async {
-    await FirebaseFirestore.instance
-        .collection('exercicios')
-        .doc(docId)
-        .delete();
-  }
-
-  // --- TRECHO DE CONFIGURAÇÃO DE EXERCÍCIO CORRIGIDO SEM A VARIÁVEL 't' ---
   void _abrirConfiguracaoExercicio(
     String grupo,
     String exercicio, {
@@ -585,7 +547,10 @@ class _HomeScreenState extends State<HomeScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Exercício: $exercicio'),
+            Text(
+              'Exercício: $exercicio',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
             TextField(
               controller: _seriesController,
               decoration: const InputDecoration(
@@ -621,7 +586,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 videoUrl: _videoUrlController.text,
               );
 
-              // Correção aplicada: usando treinoId no lugar de t.id
               if (treinoId != null) {
                 await _workoutService.excluirTreino(
                   _alunoSelecionadoId!,
@@ -735,6 +699,13 @@ class _HomeScreenState extends State<HomeScreen> {
       _novoNomeController.clear();
       _novoEmailController.clear();
       _novaSenhaController.clear();
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Aluno matriculado com sucesso! 🚀'),
+          backgroundColor: Colors.green,
+        ),
+      );
     } catch (e) {
       print(e);
     }
@@ -745,6 +716,296 @@ class _HomeScreenState extends State<HomeScreen> {
     if (status == 'Atrasado') return Colors.red;
     return Colors.orange;
   }
+
+  // ================== ABAS DO PROFESSOR CONSTRUÍDAS DO ZERO ==================
+
+  Widget _construirAbaTreinos() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Card de Cadastro de Novo Aluno
+        Card(
+          elevation: 2,
+          color: Colors.white,
+          child: ExpansionTile(
+            leading: const Icon(Icons.person_add, color: Colors.black),
+            title: const Text(
+              'Matricular Novo Aluno',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: _novoNomeController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nome Completo',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _novoEmailController,
+                      decoration: const InputDecoration(
+                        labelText: 'E-mail',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _novaSenhaController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Senha de Acesso',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.black,
+                        foregroundColor: Colors.amber,
+                        minimumSize: const Size.fromHeight(45),
+                      ),
+                      onPressed: _matricularNovoAluno,
+                      child: const Text('Salvar Matrícula'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Campo de busca de alunos
+        TextField(
+          onChanged: (val) =>
+              setState(() => _filtroBuscaAlunos = val.toLowerCase().trim()),
+          decoration: InputDecoration(
+            labelText: 'Buscar Aluno...',
+            prefixIcon: const Icon(Icons.search),
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        const Text(
+          'Selecione um Aluno para Ver/Montar a Ficha:',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        ),
+        const SizedBox(height: 8),
+
+        // Stream de Alunos vindos do Firestore
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance.collection('usuarios').snapshots(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData)
+              return const Center(
+                child: CircularProgressIndicator(color: Colors.amber),
+              );
+
+            var alunos = snapshot.data!.docs.where((doc) {
+              var dados = doc.data() as Map<String, dynamic>;
+              String nome = (dados['nome'] ?? '').toString().toLowerCase();
+              return nome.contains(_filtroBuscaAlunos);
+            }).toList();
+
+            if (alunos.isEmpty) return const Text('Nenhum aluno encontrado.');
+
+            return ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: alunos.length,
+              itemBuilder: (context, index) {
+                var doc = alunos[index];
+                var dados = doc.data() as Map<String, dynamic>;
+                bool selecionado = _alunoSelecionadoId == doc.id;
+
+                return Card(
+                  color: selecionado ? Colors.amber[100] : Colors.white,
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.amber,
+                      child: Text(
+                        dados['nome']?[0].toString().toUpperCase() ?? 'A',
+                      ),
+                    ),
+                    title: Text(
+                      dados['nome'] ?? 'Sem nome',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(dados['email'] ?? ''),
+                    trailing: selecionado
+                        ? const Icon(Icons.check_circle, color: Colors.black)
+                        : null,
+                    onTap: () {
+                      setState(() {
+                        _alunoSelecionadoId = doc.id;
+                        _alunoSelecionadoNome = dados['nome'];
+                        _alunoSelecionadoEmail = dados['email'];
+                      });
+                    },
+                    onLongPress: () {
+                      setState(() {
+                        _alunoSelecionadoId = doc.id;
+                        _alunoSelecionadoNome = dados['nome'];
+                        _alunoSelecionadoEmail = dados['email'];
+                      });
+                      _abrirEdicaoDadosAluno();
+                    },
+                  ),
+                );
+              },
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        if (_alunoSelecionadoId != null) ...[
+          Divider(color: Colors.grey[400]),
+          Text(
+            'Montando treino para: $_alunoSelecionadoNome',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.blueGrey,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Card de atalho rápido para vincular exercícios
+          Card(
+            color: Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Vincular Exercício Direto',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _grupoController,
+                    decoration: const InputDecoration(
+                      labelText: 'Grupo Muscular (Ex: Peito)',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _exerciciosController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nome do Exercício',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.amber,
+                    ),
+                    onPressed: () => _abrirConfiguracaoExercicio(
+                      _grupoController.text.trim(),
+                      _exerciciosController.text.trim(),
+                    ),
+                    child: const Text('Configurar Séries e Carga'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _construirAbaFinanceira() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Status de Mensalidades Gerais',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            IconButton(
+              icon: const Icon(Icons.settings, color: Colors.black),
+              onPressed: _abrirConfiguracaoDeValoresDoCardapio,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance.collection('usuarios').snapshots(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData)
+              return const Center(
+                child: CircularProgressIndicator(color: Colors.amber),
+              );
+            var docs = snapshot.data!.docs;
+
+            return ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: docs.length,
+              itemBuilder: (context, index) {
+                var doc = docs[index];
+                var dados = doc.data() as Map<String, dynamic>;
+                String status = dados['statusPagamento'] ?? 'Pendente';
+
+                return Card(
+                  color: Colors.white,
+                  child: ListTile(
+                    title: Text(
+                      dados['nome'] ?? 'Aluno',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      'Plano: ${dados['plano'] ?? 'Mensal'} | Vencimento: dia ${dados['diaVencimento'] ?? 10}',
+                    ),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _obterCorStatus(status).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        status,
+                        style: TextStyle(
+                          color: _obterCorStatus(status),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    onTap: () => _abrirGerenciamentoFinanceiro(
+                      doc.id,
+                      dados['nome'] ?? 'Aluno',
+                      dados,
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  // ================== FIM DAS NOVAS ABAS ==================
 
   @override
   Widget build(BuildContext context) {
@@ -785,8 +1046,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   ? Column(
                       children: [
                         _construirAbaTreinos(),
-                        if (_alunoSelecionadoId != null)
+                        if (_alunoSelecionadoId != null) ...[
+                          const SizedBox(height: 16),
                           _construirListaDeTreinosEfetivos(),
+                        ],
                       ],
                     )
                   : _construirAbaFinanceira())
@@ -819,25 +1082,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Se você tiver as implementações completas das abas visuais abaixo,
-  // elas se conectarão diretamente aqui no build:
-  Widget _construirAbaTreinos() {
-    return Container();
-  }
-
-  Widget _construirAbaFinanceira() {
-    return Container();
-  }
-
   Widget _construirListaDeTreinosEfetivos() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
               _eProfessor
-                  ? 'Gerenciando Ficha Ativa do Aluno:'
+                  ? 'Ficha Ativa de $_alunoSelecionadoNome:'
                   : 'Escolha a Série de Hoje:',
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
             ),
@@ -884,10 +1138,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: CircularProgressIndicator(color: Colors.amber),
               );
             final treinos = snapshot.data?.docs ?? [];
-            if (treinos.isEmpty)
-              return const Center(
-                child: Text('Nenhum exercício cadastrado nesta série.'),
+            if (treinos.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16.0),
+                child: Center(
+                  child: Text('Nenhum exercício cadastrado nesta série.'),
+                ),
               );
+            }
 
             return Column(
               children: treinos.map((t) {
