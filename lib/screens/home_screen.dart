@@ -33,7 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _editMensalController = TextEditingController();
   final _editTrimestralController = TextEditingController();
   final _editSemestralController = TextEditingController();
-  final _editAnualController = TextEditingController();
+  final _editAnual = TextEditingController();
 
   // CONTROLES PARA EDIÇÃO DE ALUNO EXISTENTE
   final _editarNomeAlunoController = TextEditingController();
@@ -163,7 +163,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _editMensalController.dispose();
     _editTrimestralController.dispose();
     _editSemestralController.dispose();
-    _editAnualController.dispose();
+    _editAnual.dispose();
     _editarNomeAlunoController.dispose();
     _editarEmailAlunoController.dispose();
     super.dispose();
@@ -312,7 +312,7 @@ class _HomeScreenState extends State<HomeScreen> {
         .toString();
     _editSemestralController.text = _valoresPlanosCarregados['Semestral']
         .toString();
-    _editAnualController.text = _valoresPlanosCarregados['Anual'].toString();
+    _editAnual.text = _valoresPlanosCarregados['Anual'].toString();
 
     showDialog(
       context: context,
@@ -334,7 +334,7 @@ class _HomeScreenState extends State<HomeScreen> {
               decoration: const InputDecoration(labelText: 'Plano Semestral'),
             ),
             TextField(
-              controller: _editAnualController,
+              controller: _editAnual,
               decoration: const InputDecoration(labelText: 'Plano Anual'),
             ),
           ],
@@ -357,8 +357,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         220.0,
                     'Semestral':
                         double.tryParse(_editSemestralController.text) ?? 420.0,
-                    'Anual':
-                        double.tryParse(_editAnualController.text) ?? 800.0,
+                    'Anual': double.tryParse(_editAnual.text) ?? 800.0,
                   }, SetOptions(merge: true));
               if (!mounted) return;
               Navigator.pop(context);
@@ -447,7 +446,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // CORREÇÃO VISUAL E DE LOOP APLICADA DIRETAMENTE NO PLAYER DE VÍDEO
+  // RESOLUÇÃO MÁXIMA: Substituído showDialog por showModalBottomSheet para cobrir 100% da largura horizontal do celular
   void _assistirVideo(String? url) {
     if (url == null || url.isEmpty || url == '---') return;
 
@@ -459,60 +458,79 @@ class _HomeScreenState extends State<HomeScreen> {
       autoPlay: true,
       params: const YoutubePlayerParams(
         showControls: true,
-        showFullscreenButton: false, // Ocultado pois a tela agora já abre cheia
-        mute: true, // Necessário para garantir autoplay no Android
-        loop: true, // MELHORIA: Faz o vídeo do treino rodar em loop infinito
+        showFullscreenButton: false,
+        mute: true,
+        loop: true, // Loop Infinito Mantido
       ),
     );
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.black,
-        contentPadding: EdgeInsets.zero,
-        // MELHORIA: Zera as margens para o vídeo expandir por completo nas laterais do celular
-        insetPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 24),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AspectRatio(
-              aspectRatio:
-                  16 / 9, // Força a proporção ideal de vídeo widescreen
-              child: YoutubePlayer(controller: playerController),
-            ),
-            Container(
-              color: Colors.black,
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton.icon(
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.amber,
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 8,
-                        horizontal: 12,
-                      ),
-                    ),
-                    onPressed: () {
-                      playerController.close();
-                      Navigator.pop(context);
-                    },
-                    icon: const Icon(Icons.close, size: 22),
-                    label: const Text(
-                      'Fechar Vídeo',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
+      isScrollControlled: true,
+      backgroundColor: Colors.black,
+      barrierColor: Colors.black.withOpacity(0.75),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: Container(
+          color: Colors.black,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Linha discreta para o aluno arrastar para baixo para fechar se quiser
+              const SizedBox(height: 12),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[700],
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+
+              // O Player ocupa de forma nativa e obrigatória 100% da largura horizontal sem margens internas!
+              AspectRatio(
+                aspectRatio: 16 / 9,
+                child: YoutubePlayer(controller: playerController),
+              ),
+
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 16,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.amber,
+                        ),
+                        onPressed: () {
+                          playerController.close();
+                          Navigator.pop(context);
+                        },
+                        icon: const Icon(Icons.close, size: 22),
+                        label: const Text(
+                          'Fechar Treino',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
