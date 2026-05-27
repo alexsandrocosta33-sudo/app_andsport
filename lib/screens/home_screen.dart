@@ -23,7 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _novoExercicioCardapioController = TextEditingController();
   final _videoUrlController = TextEditingController();
 
-  // CONTROLES DE CADASTRO DE PROFESSOR (NOVO)
+  // CONTROLES DE CADASTRO DE PROFESSOR
   final _profNomeController = TextEditingController();
   final _profEmailController = TextEditingController();
   final _profSenhaController = TextEditingController();
@@ -66,9 +66,9 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _alunoSelecionadoNome;
   String? _alunoSelecionadoEmail;
 
-  // HIERARQUIA DE PERMISSÕES (ATUALIZADO)
+  // HIERARQUIA DE PERMISSÕES
   bool _eProfessor = false;
-  bool _eAdminGeral = false; // Novo: Identifica se é você (Dono)
+  bool _eAdminGeral = false;
   bool _carregandoPerfil = true;
 
   String _fichaSelecionadaAluno = 'A';
@@ -99,11 +99,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final emailLogado = user.email?.toLowerCase().trim() ?? '';
 
-    // 1. Validação de segurança Master para o seu e-mail
     if (emailLogado == 'alexsandrocosta33@gmail.com') {
       setState(() {
         _eAdminGeral = true;
-        _eProfessor = true; // Todo admin também tem as funções de professor
+        _eProfessor = true;
         _alunoSelecionadoId = null;
         _carregandoPerfil = false;
       });
@@ -111,7 +110,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     try {
-      // 2. Busca o cargo configurado direto no documento do usuário logado
       final snap = await FirebaseFirestore.instance
           .collection('usuarios')
           .where('email', isEqualTo: user.email?.trim())
@@ -151,7 +149,6 @@ class _HomeScreenState extends State<HomeScreen> {
       print("Erro ao sincronizar perfil: $e");
     }
 
-    // Fallback padrão de segurança
     setState(() {
       _alunoSelecionadoId = user.uid;
       _eProfessor = false;
@@ -206,7 +203,6 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  // NOVA FUNÇÃO: Cadastra o professor no Firebase Auth e define o cargo dele no Firestore
   void _cadastrarNovoProfessor() async {
     if (_profNomeController.text.isEmpty ||
         _profEmailController.text.isEmpty ||
@@ -214,14 +210,12 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
 
     try {
-      // Registra a conta usando o mesmo serviço de criação
       await _authService.professorCadastrarAluno(
         nome: _profNomeController.text.trim(),
         email: _profEmailController.text.trim(),
         senha: _profSenhaController.text.trim(),
       );
 
-      // Busca o documento recém-criado para cravar a flag de professor
       final snap = await FirebaseFirestore.instance
           .collection('usuarios')
           .where('email', isEqualTo: _profEmailController.text.trim())
@@ -486,7 +480,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               TextField(
                 controller: _vencimentoController,
-                decoration: const InputDecoration(labelText: 'Vencimento'),
+                decoration: const InputDecoration(
+                  labelText: 'Vencimento (Dia)',
+                ),
               ),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
@@ -634,8 +630,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _abrirConfiguracaoExercicio(
-    String grupo,
-    String exercicio, {
+    String group,
+    String exercise, {
     String? treinoId,
     String? seriesAtual,
     String? cargaAtual,
@@ -660,7 +656,7 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Exercício: $exercicio',
+              'Exercício: $exercise',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
@@ -692,8 +688,8 @@ class _HomeScreenState extends State<HomeScreen> {
               await _workoutService.salvarTreino(
                 alunoId: _alunoSelecionadoId!,
                 ficha: _fichaSelecionadaAluno,
-                grupoMuscular: grupo,
-                nomeExercicios: exercicio,
+                grupoMuscular: group,
+                nomeExercicios: exercise,
                 seriesRepeticoes: _seriesController.text,
                 carga: _cargaController.text.isEmpty
                     ? '---'
@@ -812,13 +808,18 @@ class _HomeScreenState extends State<HomeScreen> {
         senha: _novaSenhaController.text.trim(),
       );
 
-      // Toda matrícula nova por padrão cria um perfil com cargo de "aluno"
       final snap = await FirebaseFirestore.instance
           .collection('usuarios')
           .where('email', isEqualTo: _novoEmailController.text.trim())
           .get();
       if (snap.docs.isNotEmpty) {
-        await snap.docs.first.reference.update({'cargo': 'aluno'});
+        await snap.docs.first.reference.update({
+          'cargo': 'aluno',
+          'statusPagamento': 'Pendente',
+          'diaVencimento': 10,
+          'plano': 'Mensal',
+          'valorMensalidade': 80.0,
+        });
       }
 
       _novoNomeController.clear();
@@ -855,13 +856,85 @@ class _HomeScreenState extends State<HomeScreen> {
     return Colors.orange;
   }
 
-  // ================== ABAS DO PROFESSOR / ADMIN CONSTRUÍDAS ==================
+  // NOVA INTERFACE VISUAL: Constrói o card de status de validade e mensagem na visão do aluno
+  Widget _construirCardValidadeMensalidade(Map<String, dynamic> dados) {
+    String status = dados['statusPagamento'] ?? 'Pendente';
+    int diaVencimento = dados['diaVencimento'] ?? 10;
+    int diaHoje = DateTime.now().day;
+
+    // Se o status no banco for Pendente mas o dia atual já passou do vencimento, consideramos Atrasado dinamicamente
+    bool estaAtrasado =
+        status == 'Atrasado' ||
+        (status == 'Pendente' && diaHoje > diaVencimento);
+    bool estaPago = status == 'Pago';
+
+    Color corCard = estaPago
+        ? Colors.green[700]!
+        : (estaAtrasado ? Colors.red[700]! : Colors.orange[700]!);
+    IconData icone = estaPago
+        ? Icons.check_circle
+        : (estaAtrasado ? Icons.warning : Icons.hourglass_empty);
+
+    return Card(
+      elevation: 3,
+      color: corCard,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icone, color: Colors.white, size: 24),
+                const SizedBox(width: 10),
+                Text(
+                  estaPago
+                      ? 'Mensalidade em Dia'
+                      : (estaAtrasado
+                            ? 'Atenção: Mensalidade Vencida'
+                            : 'Mensalidade Pendente'),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Plano Atual: ${dados['plano'] ?? 'Mensal'} • Vencimento: Dia $diaVencimento de cada mês.',
+              style: const TextStyle(color: Colors.white90, fontSize: 13),
+            ),
+            // Se estiver atrasado, exibe a mensagem amigável solicitada
+            if (estaAtrasado) ...[
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0),
+                child: Divider(color: Colors.white30, height: 1),
+              ),
+              const Text(
+                'Olá! Passamos para lembrar que sua mensalidade venceu. Para continuar acessando seus treinos e evoluindo com a gente, por favor, regularize sua situação na recepção. Bons treinos! 💪',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  height: 1.4,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ================== ABAS DO PROFESSOR CONSTRUÍDAS ==================
 
   Widget _construirAbaTreinos() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 0. EXCLUSIVO DO ADMIN: PAINEL DE CREDENCIAMENTO DE PROFESSORES
         if (_eAdminGeral) ...[
           Card(
             elevation: 3,
@@ -949,7 +1022,6 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 10),
         ],
 
-        // 1. GERENCIADOR DA BIBLIOTECA DE EXERCÍCIOS
         Card(
           elevation: 2,
           color: Colors.white,
@@ -1061,7 +1133,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 8),
 
-        // 2. CARD DE MATRÍCULA DE ALUNOS
         Card(
           elevation: 2,
           color: Colors.white,
@@ -1118,7 +1189,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 12),
 
-        // 3. BUSCA DE ALUNOS
         TextField(
           onChanged: (val) =>
               setState(() => _filtroBuscaAlunos = val.toLowerCase().trim()),
@@ -1138,7 +1208,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 8),
 
-        // Filtra para exibir apenas os perfis com cargo de "aluno" na listagem principal
         StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance.collection('usuarios').snapshots(),
           builder: (context, snapshot) {
@@ -1179,7 +1248,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       dados['nome'] ?? 'Sem nome',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    subtitle: Text(dados['email'] ?? ''),
+                    subtitle: Text(
+                      'Vence dia: ${dados['diaVencimento'] ?? 10} | Status: ${dados['statusPagamento'] ?? 'Pendente'}',
+                    ),
                     trailing: selecionado
                         ? const Icon(Icons.check_circle, color: Colors.black)
                         : null,
@@ -1207,7 +1278,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 16),
 
-        // 4. ÁREA DE ASSOCIAÇÃO INTELIGENTE DE TREINO
         if (_alunoSelecionadoId != null) ...[
           Divider(color: Colors.grey[400]),
           Text(
@@ -1351,7 +1421,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: CircularProgressIndicator(color: Colors.amber),
               );
 
-            // Filtra o financeiro para mostrar apenas os alunos (esconde outros professores e admins)
             var docs = snapshot.data!.docs.where((doc) {
               var d = doc.data() as Map<String, dynamic>;
               return (d['cargo'] ?? 'aluno') == 'aluno';
@@ -1411,7 +1480,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ================== FIM DAS ABAS DO PROFESSOR ==================
+  // ================== CONSTRUTOR DE INTERFACE PRINCIPAL (BUILD) ==================
 
   @override
   Widget build(BuildContext context) {
@@ -1462,9 +1531,28 @@ class _HomeScreenState extends State<HomeScreen> {
                     )
                   : _construirAbaFinanceira())
             : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (_alunoSelecionadoId != null)
-                    _construirListaDeTreinosEfetivos(),
+                  // Sincroniza dinamicamente as informações financeiras do aluno logado na tela dele
+                  StreamBuilder<DocumentSnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('usuarios')
+                        .doc(_alunoSelecionadoId)
+                        .snapshots(),
+                    builder: (context, snapUser) {
+                      if (!snapUser.hasData || !snapUser.data!.exists)
+                        return const SizedBox();
+                      var dadosCompletosAluno =
+                          snapUser.data!.data() as Map<String, dynamic>;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16.0),
+                        child: _construirCardValidadeMensalidade(
+                          dadosCompletosAluno,
+                        ),
+                      );
+                    },
+                  ),
+                  _construirListaDeTreinosEfetivos(),
                 ],
               ),
       ),
