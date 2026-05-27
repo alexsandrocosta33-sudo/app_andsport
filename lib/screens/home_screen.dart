@@ -447,6 +447,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // CORREÇÃO VISUAL E DE LOOP APLICADA DIRETAMENTE NO PLAYER DE VÍDEO
   void _assistirVideo(String? url) {
     if (url == null || url.isEmpty || url == '---') return;
 
@@ -458,8 +459,9 @@ class _HomeScreenState extends State<HomeScreen> {
       autoPlay: true,
       params: const YoutubePlayerParams(
         showControls: true,
-        showFullscreenButton: true,
-        mute: true,
+        showFullscreenButton: false, // Ocultado pois a tela agora já abre cheia
+        mute: true, // Necessário para garantir autoplay no Android
+        loop: true, // MELHORIA: Faz o vídeo do treino rodar em loop infinito
       ),
     );
 
@@ -469,23 +471,31 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: Colors.black,
         contentPadding: EdgeInsets.zero,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 24),
+        // MELHORIA: Zera as margens para o vídeo expandir por completo nas laterais do celular
+        insetPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 24),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             AspectRatio(
-              aspectRatio: 16 / 9,
+              aspectRatio:
+                  16 / 9, // Força a proporção ideal de vídeo widescreen
               child: YoutubePlayer(controller: playerController),
             ),
             Container(
               color: Colors.black,
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton.icon(
-                    style: TextButton.styleFrom(foregroundColor: Colors.amber),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.amber,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 8,
+                        horizontal: 12,
+                      ),
+                    ),
                     onPressed: () {
                       playerController.close();
                       Navigator.pop(context);
@@ -750,7 +760,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. GERENCIADOR DA BIBLIOTECA DE EXERCÍCIOS
         Card(
           elevation: 2,
           color: Colors.white,
@@ -814,7 +823,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 6),
 
-                    // CORREÇÃO APLICADA: Substituído Container por SizedBox para evitar erro de compilação
                     StreamBuilder<QuerySnapshot>(
                       stream: FirebaseFirestore.instance
                           .collection('exercicios')
@@ -863,7 +871,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 8),
 
-        // 2. CARD DE MATRÍCULA
         Card(
           elevation: 2,
           color: Colors.white,
@@ -920,7 +927,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 12),
 
-        // 3. BUSCA DE ALUNOS
         TextField(
           onChanged: (val) =>
               setState(() => _filtroBuscaAlunos = val.toLowerCase().trim()),
@@ -940,7 +946,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 8),
 
-        // Lista de Alunos
         StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance.collection('usuarios').snapshots(),
           builder: (context, snapshot) {
@@ -1008,7 +1013,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 16),
 
-        // 4. ÁREA DE ASSOCIAÇÃO INTELIGENTE DE TREINO
         if (_alunoSelecionadoId != null) ...[
           Divider(color: Colors.grey[400]),
           Text(
