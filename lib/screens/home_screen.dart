@@ -856,13 +856,11 @@ class _HomeScreenState extends State<HomeScreen> {
     return Colors.orange;
   }
 
-  // NOVA INTERFACE VISUAL: Constrói o card de status de validade e mensagem na visão do aluno
   Widget _construirCardValidadeMensalidade(Map<String, dynamic> dados) {
     String status = dados['statusPagamento'] ?? 'Pendente';
     int diaVencimento = dados['diaVencimento'] ?? 10;
     int diaHoje = DateTime.now().day;
 
-    // Se o status no banco for Pendente mas o dia atual já passou do vencimento, consideramos Atrasado dinamicamente
     bool estaAtrasado =
         status == 'Atrasado' ||
         (status == 'Pendente' && diaHoje > diaVencimento);
@@ -903,11 +901,11 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             const SizedBox(height: 6),
+            // CORREÇÃO EXECUTADA: Ajustado Colors.white90 para Colors.white70 (membro válido no Flutter)
             Text(
               'Plano Atual: ${dados['plano'] ?? 'Mensal'} • Vencimento: Dia $diaVencimento de cada mês.',
-              style: const TextStyle(color: Colors.white90, fontSize: 13),
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
             ),
-            // Se estiver atrasado, exibe a mensagem amigável solicitada
             if (estaAtrasado) ...[
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8.0),
@@ -1533,7 +1531,6 @@ class _HomeScreenState extends State<HomeScreen> {
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Sincroniza dinamicamente as informações financeiras do aluno logado na tela dele
                   StreamBuilder<DocumentSnapshot>(
                     stream: FirebaseFirestore.instance
                         .collection('usuarios')
