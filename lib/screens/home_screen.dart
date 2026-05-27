@@ -23,6 +23,11 @@ class _HomeScreenState extends State<HomeScreen> {
   final _novoExercicioCardapioController = TextEditingController();
   final _videoUrlController = TextEditingController();
 
+  // CONTROLES DE CADASTRO DE PROFESSOR (NOVO)
+  final _profNomeController = TextEditingController();
+  final _profEmailController = TextEditingController();
+  final _profSenhaController = TextEditingController();
+
   // CONTROLES DO PAINEL FINANCEIRO
   final _mensalidadeController = TextEditingController();
   final _vencimentoController = TextEditingController();
@@ -60,7 +65,10 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _alunoSelecionadoId;
   String? _alunoSelecionadoNome;
   String? _alunoSelecionadoEmail;
+
+  // HIERARQUIA DE PERMISSÕES (ATUALIZADO)
   bool _eProfessor = false;
+  bool _eAdminGeral = false; // Novo: Identifica se é você (Dono)
   bool _carregandoPerfil = true;
 
   String _fichaSelecionadaAluno = 'A';
@@ -91,39 +99,65 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final emailLogado = user.email?.toLowerCase().trim() ?? '';
 
-    if (emailLogado.contains('admin') ||
-        emailLogado.contains('professor') ||
-        emailLogado == 'alexsandrocosta33@gmail.com') {
+    // 1. Validação de segurança Master para o seu e-mail
+    if (emailLogado == 'alexsandrocosta33@gmail.com') {
       setState(() {
-        _eProfessor = true;
+        _eAdminGeral = true;
+        _eProfessor = true; // Todo admin também tem as funções de professor
         _alunoSelecionadoId = null;
         _carregandoPerfil = false;
       });
-    } else {
-      try {
-        final snap = await FirebaseFirestore.instance
-            .collection('usuarios')
-            .where('email', isEqualTo: user.email?.trim())
-            .get();
+      return;
+    }
 
-        if (snap.docs.isNotEmpty) {
+    try {
+      // 2. Busca o cargo configurado direto no documento do usuário logado
+      final snap = await FirebaseFirestore.instance
+          .collection('usuarios')
+          .where('email', isEqualTo: user.email?.trim())
+          .get();
+
+      if (snap.docs.isNotEmpty) {
+        final dadosUsuario = snap.docs.first.data();
+        String cargo = dadosUsuario['cargo'] ?? 'aluno';
+
+        if (cargo == 'admin') {
           setState(() {
-            _alunoSelecionadoId = snap.docs.first.id;
-            _eProfessor = false;
+            _eAdminGeral = true;
+            _eProfessor = true;
+            _alunoSelecionadoId = null;
             _carregandoPerfil = false;
           });
-          return;
+        } else if (cargo == 'professor' ||
+            emailLogado.contains('admin') ||
+            emailLogado.contains('professor')) {
+          setState(() {
+            _eAdminGeral = false;
+            _eProfessor = true;
+            _alunoSelecionadoId = null;
+            _carregandoPerfil = false;
+          });
+        } else {
+          setState(() {
+            _eAdminGeral = false;
+            _eProfessor = false;
+            _alunoSelecionadoId = snap.docs.first.id;
+            _carregandoPerfil = false;
+          });
         }
-      } catch (e) {
-        print("Erro ao sincronizar ID do aluno: $e");
+        return;
       }
-
-      setState(() {
-        _alunoSelecionadoId = user.uid;
-        _eProfessor = false;
-        _carregandoPerfil = false;
-      });
+    } catch (e) {
+      print("Erro ao sincronizar perfil: $e");
     }
+
+    // Fallback padrão de segurança
+    setState(() {
+      _alunoSelecionadoId = user.uid;
+      _eProfessor = false;
+      _eAdminGeral = false;
+      _carregandoPerfil = false;
+    });
   }
 
   void _ouvirValoresDoCardapioDePlanos() {
@@ -158,6 +192,9 @@ class _HomeScreenState extends State<HomeScreen> {
     _novaSenhaController.dispose();
     _novoExercicioCardapioController.dispose();
     _videoUrlController.dispose();
+    _profNomeController.dispose();
+    _profEmailController.dispose();
+    _profSenhaController.dispose();
     _mensalidadeController.dispose();
     _vencimentoController.dispose();
     _editMensalController.dispose();
@@ -167,6 +204,47 @@ class _HomeScreenState extends State<HomeScreen> {
     _editarNomeAlunoController.dispose();
     _editarEmailAlunoController.dispose();
     super.dispose();
+  }
+
+  // NOVA FUNÇÃO: Cadastra o professor no Firebase Auth e define o cargo dele no Firestore
+  void _cadastrarNovoProfessor() async {
+    if (_profNomeController.text.isEmpty ||
+        _profEmailController.text.isEmpty ||
+        _profSenhaController.text.isEmpty)
+      return;
+
+    try {
+      // Registra a conta usando o mesmo serviço de criação
+      await _authService.professorCadastrarAluno(
+        nome: _profNomeController.text.trim(),
+        email: _profEmailController.text.trim(),
+        senha: _profSenhaController.text.trim(),
+      );
+
+      // Busca o documento recém-criado para cravar a flag de professor
+      final snap = await FirebaseFirestore.instance
+          .collection('usuarios')
+          .where('email', isEqualTo: _profEmailController.text.trim())
+          .get();
+
+      if (snap.docs.isNotEmpty) {
+        await snap.docs.first.reference.update({'cargo': 'professor'});
+      }
+
+      _profNomeController.clear();
+      _profEmailController.clear();
+      _profSenhaController.clear();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Professor credenciado com sucesso! 🛡️'),
+          backgroundColor: Colors.blue,
+        ),
+      );
+    } catch (e) {
+      print("Erro ao cadastrar professor: $e");
+    }
   }
 
   void _abrirEdicaoDadosAluno() {
@@ -446,7 +524,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // RESOLUÇÃO MÁXIMA: Substituído showDialog por showModalBottomSheet para cobrir 100% da largura horizontal do celular
   void _assistirVideo(String? url) {
     if (url == null || url.isEmpty || url == '---') return;
 
@@ -460,7 +537,7 @@ class _HomeScreenState extends State<HomeScreen> {
         showControls: true,
         showFullscreenButton: false,
         mute: true,
-        loop: true, // Loop Infinito Mantido
+        loop: true,
       ),
     );
 
@@ -481,7 +558,6 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Linha discreta para o aluno arrastar para baixo para fechar se quiser
               const SizedBox(height: 12),
               Container(
                 width: 40,
@@ -492,13 +568,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-
-              // O Player ocupa de forma nativa e obrigatória 100% da largura horizontal sem margens internas!
               AspectRatio(
                 aspectRatio: 16 / 9,
                 child: YoutubePlayer(controller: playerController),
               ),
-
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -734,10 +807,20 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     try {
       await _authService.professorCadastrarAluno(
-        nome: _novoNomeController.text,
-        email: _novoEmailController.text,
-        senha: _novaSenhaController.text,
+        nome: _novoNomeController.text.trim(),
+        email: _novoEmailController.text.trim(),
+        senha: _novaSenhaController.text.trim(),
       );
+
+      // Toda matrícula nova por padrão cria um perfil com cargo de "aluno"
+      final snap = await FirebaseFirestore.instance
+          .collection('usuarios')
+          .where('email', isEqualTo: _novoEmailController.text.trim())
+          .get();
+      if (snap.docs.isNotEmpty) {
+        await snap.docs.first.reference.update({'cargo': 'aluno'});
+      }
+
       _novoNomeController.clear();
       _novoEmailController.clear();
       _novaSenhaController.clear();
@@ -772,12 +855,101 @@ class _HomeScreenState extends State<HomeScreen> {
     return Colors.orange;
   }
 
-  // ================== ABAS DO PROFESSOR CONSTRUÍDAS ==================
+  // ================== ABAS DO PROFESSOR / ADMIN CONSTRUÍDAS ==================
 
   Widget _construirAbaTreinos() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 0. EXCLUSIVO DO ADMIN: PAINEL DE CREDENCIAMENTO DE PROFESSORES
+        if (_eAdminGeral) ...[
+          Card(
+            elevation: 3,
+            color: Colors.blueGrey[900],
+            child: ExpansionTile(
+              iconColor: Colors.amber,
+              collapsedIconColor: Colors.amber,
+              leading: const Icon(Icons.shield, color: Colors.amber),
+              title: const Text(
+                'Área do Dono: Cadastrar Professor',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: _profNomeController,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: const InputDecoration(
+                          labelText: 'Nome do Professor',
+                          labelStyle: TextStyle(color: Colors.white70),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.white30),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.amber),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _profEmailController,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: const InputDecoration(
+                          labelText: 'E-mail de Acesso',
+                          labelStyle: TextStyle(color: Colors.white70),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.white30),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.amber),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _profSenhaController,
+                        obscureText: true,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: const InputDecoration(
+                          labelText: 'Senha Inicial',
+                          labelStyle: TextStyle(color: Colors.white70),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.white30),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.amber),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.amber,
+                          foregroundColor: Colors.black,
+                          minimumSize: const Size.fromHeight(42),
+                        ),
+                        onPressed: _cadastrarNovoProfessor,
+                        child: const Text(
+                          'Autorizar e Cadastrar Professor',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+
+        // 1. GERENCIADOR DA BIBLIOTECA DE EXERCÍCIOS
         Card(
           elevation: 2,
           color: Colors.white,
@@ -889,6 +1061,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 8),
 
+        // 2. CARD DE MATRÍCULA DE ALUNOS
         Card(
           elevation: 2,
           color: Colors.white,
@@ -945,6 +1118,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 12),
 
+        // 3. BUSCA DE ALUNOS
         TextField(
           onChanged: (val) =>
               setState(() => _filtroBuscaAlunos = val.toLowerCase().trim()),
@@ -964,6 +1138,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 8),
 
+        // Filtra para exibir apenas os perfis com cargo de "aluno" na listagem principal
         StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance.collection('usuarios').snapshots(),
           builder: (context, snapshot) {
@@ -975,7 +1150,8 @@ class _HomeScreenState extends State<HomeScreen> {
             var alunos = snapshot.data!.docs.where((doc) {
               var dados = doc.data() as Map<String, dynamic>;
               String nome = (dados['nome'] ?? '').toString().toLowerCase();
-              return nome.contains(_filtroBuscaAlunos);
+              String cargo = dados['cargo'] ?? 'aluno';
+              return nome.contains(_filtroBuscaAlunos) && cargo == 'aluno';
             }).toList();
 
             if (alunos.isEmpty) return const Text('Nenhum aluno encontrado.');
@@ -1031,6 +1207,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 16),
 
+        // 4. ÁREA DE ASSOCIAÇÃO INTELIGENTE DE TREINO
         if (_alunoSelecionadoId != null) ...[
           Divider(color: Colors.grey[400]),
           Text(
@@ -1173,7 +1350,15 @@ class _HomeScreenState extends State<HomeScreen> {
               return const Center(
                 child: CircularProgressIndicator(color: Colors.amber),
               );
-            var docs = snapshot.data!.docs;
+
+            // Filtra o financeiro para mostrar apenas os alunos (esconde outros professores e admins)
+            var docs = snapshot.data!.docs.where((doc) {
+              var d = doc.data() as Map<String, dynamic>;
+              return (d['cargo'] ?? 'aluno') == 'aluno';
+            }).toList();
+
+            if (docs.isEmpty)
+              return const Text('Nenhum aluno ativo para faturamento.');
 
             return ListView.builder(
               shrinkWrap: true,
@@ -1245,7 +1430,9 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Text(
           _eProfessor
               ? (_abaAtualProfessor == 0
-                    ? 'Painel Admin'
+                    ? (_eAdminGeral
+                          ? 'Painel Admin Geral'
+                          : 'Painel do Professor')
                     : 'Gestão Financeira 💰')
               : 'Meus Treinos',
         ),
