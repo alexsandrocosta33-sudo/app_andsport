@@ -241,7 +241,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // INTERFACE ALTERADA: Agora possui o botão de Exclusão integrado no canto inferior esquerdo
   void _abrirEdicaoDadosAluno() {
     if (_alunoSelecionadoId == null) return;
 
@@ -254,7 +253,7 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Row(
           children: [
             Icon(Icons.edit, color: Colors.orange),
-            SizedBox(width: 8),
+            STheme(data: ThemeData(), child: SizedBox(width: 8)),
             Text(
               'Editar Cadastro',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -283,16 +282,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
-          // Botão Vermelho de Excluir adicionado na janela de Edição
-          TextButton.icon(
-            onPressed: () {
-              Navigator.pop(context); // Fecha a edição
-              _confirmarExclusaoAluno(); // Abre a confirmação de exclusão
-            },
-            icon: const Icon(Icons.delete, color: Colors.red),
-            label: const Text('Excluir', style: TextStyle(color: Colors.red)),
-          ),
-          const Spacer(),
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text(
@@ -326,7 +315,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Dados do aluno atualizados! 📝'),
+                  content: Text('Dados do aluno updated! 📝'),
                   backgroundColor: Colors.green,
                 ),
               );
@@ -338,9 +327,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _confirmarExclusaoAluno() {
-    if (_alunoSelecionadoId == null) return;
-
+  void _confirmarExclusaoAluno(String idAluno, String nomeAluno) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -355,7 +342,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         content: Text(
-          'Tem certeza que deseja apagar permanentemente o cadastro de "$_alunoSelecionadoNome"? Todos os treinos dele serão removidos.',
+          'Tem certeza que deseja apagar permanentemente o cadastro de "$nomeAluno"? Todos os treinos vinculados serão perdidos.',
         ),
         actions: [
           TextButton(
@@ -371,35 +358,38 @@ class _HomeScreenState extends State<HomeScreen> {
               foregroundColor: Colors.white,
             ),
             onPressed: () async {
-              final idParaDeletar = _alunoSelecionadoId!;
-
-              // 1. Limpa os treinos vinculados a ele
+              // 1. Apaga a subcoleção de treinos do aluno primeiro
               final treinosSnap = await FirebaseFirestore.instance
                   .collection('usuarios')
-                  .doc(idParaDeletar)
+                  .doc(idAluno)
                   .collection('treinos')
                   .get();
               for (var doc in treinosSnap.docs) {
                 await doc.reference.delete();
               }
 
-              // 2. Apaga o documento principal do usuário
+              // 2. Apaga o perfil do aluno na coleção de usuários
               await FirebaseFirestore.instance
                   .collection('usuarios')
-                  .doc(idParaDeletar)
+                  .doc(idAluno)
                   .delete();
 
-              setState(() {
-                _alunoSelecionadoId = null;
-                _alunoSelecionadoNome = null;
-                _alunoSelecionadoEmail = null;
-              });
+              // Se o aluno deletado for o que estava selecionado na tela, limpa as variáveis de seleção
+              if (_alunoSelecionadoId == idAluno) {
+                setState(() {
+                  _alunoSelecionadoId = null;
+                  _alunoSelecionadoNome = null;
+                  _alunoSelecionadoEmail = null;
+                });
+              } else {
+                setState(() {}); // Força atualização de interface
+              }
 
               if (!mounted) return;
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Aluno excluído com sucesso! 🗑️'),
+                  content: Text('Aluno removido do sistema! 🗑️'),
                   backgroundColor: Colors.redAccent,
                 ),
               );
@@ -1233,8 +1223,8 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 12),
 
         const Text(
-          'Selecione um Aluno para Ver/Montar a Ficha (Clique longo para Editar/Deletar):',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          'Lista de Alunos Cadastrados:',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
         ),
         const SizedBox(height: 8),
 
@@ -1281,14 +1271,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     subtitle: Text(
                       'Vence dia: ${dados['diaVencimento'] ?? 10} | Status: ${dados['statusPagamento'] ?? 'Pendente'}',
                     ),
-                    // Ícone visual de engrenagem para indicar que dá para clicar e gerenciar
+                    // IMPLEMENTAÇÃO SOLICITADA: Botões de Editar e o botão Vermelho de Deletar direto no card
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        // Botão de Editar Dados
                         IconButton(
                           icon: const Icon(
-                            Icons.edit_note,
+                            Icons.edit,
                             color: Colors.blueGrey,
+                            size: 22,
                           ),
                           onPressed: () {
                             setState(() {
@@ -1297,6 +1289,20 @@ class _HomeScreenState extends State<HomeScreen> {
                               _alunoSelecionadoEmail = dados['email'];
                             });
                             _abrirEdicaoDadosAluno();
+                          },
+                        ),
+                        // NOVO: Botão de Lixeira Vermelho para Deletar Direto
+                        IconButton(
+                          icon: const Icon(
+                            Icons.delete_forever,
+                            color: Colors.red,
+                            size: 24,
+                          ),
+                          onPressed: () {
+                            _confirmarExclusaoAluno(
+                              doc.id,
+                              dados['nome'] ?? 'Aluno',
+                            );
                           },
                         ),
                         if (selecionado)
@@ -1310,14 +1316,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         _alunoSelecionadoEmail = dados['email'];
                         _exercicioSelecionadoCardapio = null;
                       });
-                    },
-                    onLongPress: () {
-                      setState(() {
-                        _alunoSelecionadoId = doc.id;
-                        _alunoSelecionadoNome = dados['nome'];
-                        _alunoSelecionadoEmail = dados['email'];
-                      });
-                      _abrirEdicaoDadosAluno();
                     },
                   ),
                 );
