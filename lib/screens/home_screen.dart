@@ -315,7 +315,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Dados do aluno atualizados! 📝'),
+                  content: Text('Dados do aluno updated! 📝'),
                   backgroundColor: Colors.green,
                 ),
               );
@@ -469,6 +469,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _planoSelecionadoAluno = dadosAtuais['plano'] ?? 'Mensal';
     _mensalidadeController.text =
         (dadosAtuais['valorMensalidade'] ??
+                dadosAtuais['valor'] ??
+                dadosAtuais['mensalidade'] ??
                 _valoresPlanosCarregados[_planoSelecionadoAluno])
             .toString();
     _vencimentoController.text = (dadosAtuais['diaVencimento'] ?? 10)
@@ -1471,7 +1473,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // LÓGICA REESCRITA E CORRIGIDA: Tratamento robusto para somar inteiros, strings e decimais do Firebase
   Widget _construirAbaFinanceira() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('usuarios').snapshots(),
@@ -1493,11 +1494,15 @@ class _HomeScreenState extends State<HomeScreen> {
             if (cargo == 'aluno') {
               alunosFiltrados.add(doc);
 
-              // Correção Crítica de Conversão: Extrai o valor tratando qualquer formato do banco
+              // VARREDURA INTELIGENTE DE CAMPOS: Mapeia qualquer nome de campo de preço estruturado no banco
               double valor = 0.0;
               if (d['valorMensalidade'] != null) {
                 valor =
                     double.tryParse(d['valorMensalidade'].toString()) ?? 0.0;
+              } else if (d['valor'] != null) {
+                valor = double.tryParse(d['valor'].toString()) ?? 0.0;
+              } else if (d['mensalidade'] != null) {
+                valor = double.tryParse(d['mensalidade'].toString()) ?? 0.0;
               }
 
               String status = (d['statusPagamento'] ?? 'Pendente')
@@ -1507,7 +1512,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   int.tryParse(d['diaVencimento'].toString()) ?? 10;
               int diaHoje = DateTime.now().day;
 
-              // Separação segura por status ignorando variações de caixa alta/baixa
               if (status.toLowerCase() == 'pago') {
                 faturamentoPago += valor;
               } else if (status.toLowerCase() == 'atrasado' ||
@@ -1610,7 +1614,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   }
 
                   double valorExibicao =
-                      double.tryParse(dados['valorMensalidade'].toString()) ??
+                      double.tryParse(
+                        (dados['valorMensalidade'] ??
+                                dados['valor'] ??
+                                dados['mensalidade'] ??
+                                0)
+                            .toString(),
+                      ) ??
                       0.0;
 
                   return Card(
