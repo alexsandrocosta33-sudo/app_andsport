@@ -253,7 +253,9 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Row(
           children: [
             Icon(Icons.edit, color: Colors.orange),
-            STheme(data: ThemeData(), child: SizedBox(width: 8)),
+            SizedBox(
+              width: 8,
+            ), // CORREÇÃO EXECUTADA AQUI: Removido STheme inválido
             Text(
               'Editar Cadastro',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -315,7 +317,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Dados do aluno updated! 📝'),
+                  content: Text('Dados do aluno atualizados! 📝'),
                   backgroundColor: Colors.green,
                 ),
               );
@@ -374,7 +376,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   .doc(idAluno)
                   .delete();
 
-              // Se o aluno deletado for o que estava selecionado na tela, limpa as variáveis de seleção
               if (_alunoSelecionadoId == idAluno) {
                 setState(() {
                   _alunoSelecionadoId = null;
@@ -382,7 +383,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   _alunoSelecionadoEmail = null;
                 });
               } else {
-                setState(() {}); // Força atualização de interface
+                setState(() {});
               }
 
               if (!mounted) return;
@@ -1271,11 +1272,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     subtitle: Text(
                       'Vence dia: ${dados['diaVencimento'] ?? 10} | Status: ${dados['statusPagamento'] ?? 'Pendente'}',
                     ),
-                    // IMPLEMENTAÇÃO SOLICITADA: Botões de Editar e o botão Vermelho de Deletar direto no card
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Botão de Editar Dados
                         IconButton(
                           icon: const Icon(
                             Icons.edit,
@@ -1291,7 +1290,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             _abrirEdicaoDadosAluno();
                           },
                         ),
-                        // NOVO: Botão de Lixeira Vermelho para Deletar Direto
                         IconButton(
                           icon: const Icon(
                             Icons.delete_forever,
