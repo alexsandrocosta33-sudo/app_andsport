@@ -241,6 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // INTERFACE ALTERADA: Agora possui o botão de Exclusão integrado no canto inferior esquerdo
   void _abrirEdicaoDadosAluno() {
     if (_alunoSelecionadoId == null) return;
 
@@ -255,7 +256,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Icon(Icons.edit, color: Colors.orange),
             SizedBox(width: 8),
             Text(
-              'Editar Cadastro do Aluno',
+              'Editar Cadastro',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
           ],
@@ -282,9 +283,22 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
+          // Botão Vermelho de Excluir adicionado na janela de Edição
+          TextButton.icon(
+            onPressed: () {
+              Navigator.pop(context); // Fecha a edição
+              _confirmarExclusaoAluno(); // Abre a confirmação de exclusão
+            },
+            icon: const Icon(Icons.delete, color: Colors.red),
+            label: const Text('Excluir', style: TextStyle(color: Colors.red)),
+          ),
+          const Spacer(),
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: Colors.black),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -341,7 +355,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         content: Text(
-          'Tem certeza que deseja apagar o cadastro de "$_alunoSelecionadoNome"?',
+          'Tem certeza que deseja apagar permanentemente o cadastro de "$_alunoSelecionadoNome"? Todos os treinos dele serão removidos.',
         ),
         actions: [
           TextButton(
@@ -358,18 +372,37 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             onPressed: () async {
               final idParaDeletar = _alunoSelecionadoId!;
+
+              // 1. Limpa os treinos vinculados a ele
+              final treinosSnap = await FirebaseFirestore.instance
+                  .collection('usuarios')
+                  .doc(idParaDeletar)
+                  .collection('treinos')
+                  .get();
+              for (var doc in treinosSnap.docs) {
+                await doc.reference.delete();
+              }
+
+              // 2. Apaga o documento principal do usuário
+              await FirebaseFirestore.instance
+                  .collection('usuarios')
+                  .doc(idParaDeletar)
+                  .delete();
+
               setState(() {
                 _alunoSelecionadoId = null;
                 _alunoSelecionadoNome = null;
                 _alunoSelecionadoEmail = null;
               });
 
-              await FirebaseFirestore.instance
-                  .collection('usuarios')
-                  .doc(idParaDeletar)
-                  .delete();
               if (!mounted) return;
               Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Aluno excluído com sucesso! 🗑️'),
+                  backgroundColor: Colors.redAccent,
+                ),
+              );
             },
             child: const Text('Excluir Definitivamente'),
           ),
@@ -901,7 +934,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             const SizedBox(height: 6),
-            // CORREÇÃO EXECUTADA: Ajustado Colors.white90 para Colors.white70 (membro válido no Flutter)
             Text(
               'Plano Atual: ${dados['plano'] ?? 'Mensal'} • Vencimento: Dia $diaVencimento de cada mês.',
               style: const TextStyle(color: Colors.white70, fontSize: 13),
@@ -1201,8 +1233,8 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 12),
 
         const Text(
-          'Selecione um Aluno para Ver/Montar a Ficha:',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          'Selecione um Aluno para Ver/Montar a Ficha (Clique longo para Editar/Deletar):',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
         ),
         const SizedBox(height: 8),
 
@@ -1249,9 +1281,28 @@ class _HomeScreenState extends State<HomeScreen> {
                     subtitle: Text(
                       'Vence dia: ${dados['diaVencimento'] ?? 10} | Status: ${dados['statusPagamento'] ?? 'Pendente'}',
                     ),
-                    trailing: selecionado
-                        ? const Icon(Icons.check_circle, color: Colors.black)
-                        : null,
+                    // Ícone visual de engrenagem para indicar que dá para clicar e gerenciar
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.edit_note,
+                            color: Colors.blueGrey,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _alunoSelecionadoId = doc.id;
+                              _alunoSelecionadoNome = dados['nome'];
+                              _alunoSelecionadoEmail = dados['email'];
+                            });
+                            _abrirEdicaoDadosAluno();
+                          },
+                        ),
+                        if (selecionado)
+                          const Icon(Icons.check_circle, color: Colors.black),
+                      ],
+                    ),
                     onTap: () {
                       setState(() {
                         _alunoSelecionadoId = doc.id;
