@@ -37,8 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // CONTROLES PARA EDICAO DOS PLANOS DO CARDAPIO
   final _editMensalController = TextEditingController();
   final _editTrimestralController = TextEditingController();
-  final _editSemestralController =
-      TextEditingController(); // CORREÇÃO EXECUTADA AQUI: Adicionado "Controller" no nome
+  final _editSemestralController = TextEditingController();
   final _editAnual = TextEditingController();
 
   // CONTROLES PARA EDIÇÃO DE ALUNO EXISTENTE
@@ -1472,6 +1471,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // LÓGICA REESCRITA E CORRIGIDA: Tratamento robusto para somar inteiros, strings e decimais do Firebase
   Widget _construirAbaFinanceira() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('usuarios').snapshots(),
@@ -1481,21 +1481,38 @@ class _HomeScreenState extends State<HomeScreen> {
         double faturamentoAtrasado = 0.0;
         List<QueryDocumentSnapshot> alunosFiltrados = [];
 
-        if (snapshot.hasData) {
+        if (snapshot.hasData && snapshot.data != null) {
           for (var doc in snapshot.data!.docs) {
-            var d = doc.data() as Map<String, dynamic>;
-            if ((d['cargo'] ?? 'aluno') == 'aluno') {
+            var d = doc.data() as Map<String, dynamic>?;
+            if (d == null) continue;
+
+            String cargo = (d['cargo'] ?? 'aluno')
+                .toString()
+                .toLowerCase()
+                .trim();
+            if (cargo == 'aluno') {
               alunosFiltrados.add(doc);
-              double valor =
-                  double.tryParse(d['valorMensalidade'].toString()) ?? 0.0;
-              String status = d['statusPagamento'] ?? 'Pendente';
-              int diaVencimento = d['diaVencimento'] ?? 10;
+
+              // Correção Crítica de Conversão: Extrai o valor tratando qualquer formato do banco
+              double valor = 0.0;
+              if (d['valorMensalidade'] != null) {
+                valor =
+                    double.tryParse(d['valorMensalidade'].toString()) ?? 0.0;
+              }
+
+              String status = (d['statusPagamento'] ?? 'Pendente')
+                  .toString()
+                  .trim();
+              int diaVencimento =
+                  int.tryParse(d['diaVencimento'].toString()) ?? 10;
               int diaHoje = DateTime.now().day;
 
-              if (status == 'Pago') {
+              // Separação segura por status ignorando variações de caixa alta/baixa
+              if (status.toLowerCase() == 'pago') {
                 faturamentoPago += valor;
-              } else if (status == 'Atrasado' ||
-                  (status == 'Pendente' && diaHoje > diaVencimento)) {
+              } else if (status.toLowerCase() == 'atrasado' ||
+                  (status.toLowerCase() == 'pendente' &&
+                      diaHoje > diaVencimento)) {
                 faturamentoAtrasado += valor;
               } else {
                 faturamentoPendente += valor;
@@ -1592,6 +1609,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     status = 'Atrasado';
                   }
 
+                  double valorExibicao =
+                      double.tryParse(dados['valorMensalidade'].toString()) ??
+                      0.0;
+
                   return Card(
                     color: Colors.white,
                     child: ListTile(
@@ -1600,7 +1621,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       subtitle: Text(
-                        'Plano: ${dados['plano'] ?? 'Mensal'} | Valor: R\$ ${(dados['valorMensalidade'] ?? 0.0).toStringAsFixed(2)}',
+                        'Plano: ${dados['plano'] ?? 'Mensal'} | Valor: R\$ ${valorExibicao.toStringAsFixed(2)}',
                       ),
                       trailing: Container(
                         padding: const EdgeInsets.symmetric(
