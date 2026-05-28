@@ -37,7 +37,8 @@ class _HomeScreenState extends State<HomeScreen> {
   // CONTROLES PARA EDICAO DOS PLANOS DO CARDAPIO
   final _editMensalController = TextEditingController();
   final _editTrimestralController = TextEditingController();
-  final _editSemestralController = TextEditingController();
+  final _editSemestralController =
+      TextEditingController(); // CORREÇÃO EXECUTADA AQUI: Adicionado "Controller" no nome
   final _editAnual = TextEditingController();
 
   // CONTROLES PARA EDIÇÃO DE ALUNO EXISTENTE
@@ -253,9 +254,7 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Row(
           children: [
             Icon(Icons.edit, color: Colors.orange),
-            SizedBox(
-              width: 8,
-            ), // CORREÇÃO EXECUTADA AQUI: Removido STheme inválido
+            SizedBox(width: 8),
             Text(
               'Editar Cadastro',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -360,7 +359,6 @@ class _HomeScreenState extends State<HomeScreen> {
               foregroundColor: Colors.white,
             ),
             onPressed: () async {
-              // 1. Apaga a subcoleção de treinos do aluno primeiro
               final treinosSnap = await FirebaseFirestore.instance
                   .collection('usuarios')
                   .doc(idAluno)
@@ -370,7 +368,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 await doc.reference.delete();
               }
 
-              // 2. Apaga o perfil do aluno na coleção de usuários
               await FirebaseFirestore.instance
                   .collection('usuarios')
                   .doc(idAluno)
@@ -950,6 +947,41 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _construirMiniCardFaturamento(String titulo, String valor, Color cor) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: cor.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: cor.withOpacity(0.35), width: 1),
+        ),
+        child: Column(
+          children: [
+            Text(
+              titulo,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: cor.withOpacity(0.9),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              valor,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: cor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ================== ABAS DO PROFESSOR CONSTRUÍDAS ==================
 
   Widget _construirAbaTreinos() {
@@ -1441,87 +1473,164 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _construirAbaFinanceira() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('usuarios').snapshots(),
+      builder: (context, snapshot) {
+        double faturamentoPago = 0.0;
+        double faturamentoPendente = 0.0;
+        double faturamentoAtrasado = 0.0;
+        List<QueryDocumentSnapshot> alunosFiltrados = [];
+
+        if (snapshot.hasData) {
+          for (var doc in snapshot.data!.docs) {
+            var d = doc.data() as Map<String, dynamic>;
+            if ((d['cargo'] ?? 'aluno') == 'aluno') {
+              alunosFiltrados.add(doc);
+              double valor =
+                  double.tryParse(d['valorMensalidade'].toString()) ?? 0.0;
+              String status = d['statusPagamento'] ?? 'Pendente';
+              int diaVencimento = d['diaVencimento'] ?? 10;
+              int diaHoje = DateTime.now().day;
+
+              if (status == 'Pago') {
+                faturamentoPago += valor;
+              } else if (status == 'Atrasado' ||
+                  (status == 'Pendente' && diaHoje > diaVencimento)) {
+                faturamentoAtrasado += valor;
+              } else {
+                faturamentoPendente += valor;
+              }
+            }
+          }
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Status de Mensalidades Gerais',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            IconButton(
-              icon: const Icon(Icons.settings, color: Colors.black),
-              onPressed: _abrirConfiguracaoDeValoresDoCardapio,
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance.collection('usuarios').snapshots(),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData)
-              return const Center(
-                child: CircularProgressIndicator(color: Colors.amber),
-              );
-
-            var docs = snapshot.data!.docs.where((doc) {
-              var d = doc.data() as Map<String, dynamic>;
-              return (d['cargo'] ?? 'aluno') == 'aluno';
-            }).toList();
-
-            if (docs.isEmpty)
-              return const Text('Nenhum aluno ativo para faturamento.');
-
-            return ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: docs.length,
-              itemBuilder: (context, index) {
-                var doc = docs[index];
-                var dados = doc.data() as Map<String, dynamic>;
-                String status = dados['statusPagamento'] ?? 'Pendente';
-
-                return Card(
-                  color: Colors.white,
-                  child: ListTile(
-                    title: Text(
-                      dados['nome'] ?? 'Aluno',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text(
-                      'Plano: ${dados['plano'] ?? 'Mensal'} | Vencimento: dia ${dados['diaVencimento'] ?? 10}',
-                    ),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
+            Card(
+              color: Colors.white,
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(14.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Resumo Financeiro Mensal',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        color: Colors.blueGrey,
                       ),
-                      decoration: BoxDecoration(
-                        color: _obterCorStatus(status).withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        _construirMiniCardFaturamento(
+                          'Arrecadado',
+                          'R\$ ${faturamentoPago.toStringAsFixed(2)}',
+                          Colors.green[700]!,
+                        ),
+                        const SizedBox(width: 8),
+                        _construirMiniCardFaturamento(
+                          'A Receber',
+                          'R\$ ${faturamentoPendente.toStringAsFixed(2)}',
+                          Colors.orange[700]!,
+                        ),
+                        const SizedBox(width: 8),
+                        _construirMiniCardFaturamento(
+                          'Inadimplente',
+                          'R\$ ${faturamentoAtrasado.toStringAsFixed(2)}',
+                          Colors.red[700]!,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Status de Mensalidades Individuais',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.settings, color: Colors.black),
+                  onPressed: _abrirConfiguracaoDeValoresDoCardapio,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            if (alunosFiltrados.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24.0),
+                child: Center(
+                  child: Text('Nenhum aluno ativo para faturamento.'),
+                ),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: alunosFiltrados.length,
+                itemBuilder: (context, index) {
+                  var doc = alunosFiltrados[index];
+                  var dados = doc.data() as Map<String, dynamic>;
+                  String status = dados['statusPagamento'] ?? 'Pendente';
+                  int diaVencimento = dados['diaVencimento'] ?? 10;
+                  int diaHoje = DateTime.now().day;
+
+                  if (status == 'Pendente' && diaHoje > diaVencimento) {
+                    status = 'Atrasado';
+                  }
+
+                  return Card(
+                    color: Colors.white,
+                    child: ListTile(
+                      title: Text(
+                        dados['nome'] ?? 'Aluno',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      child: Text(
-                        status,
-                        style: TextStyle(
-                          color: _obterCorStatus(status),
-                          fontWeight: FontWeight.bold,
+                      subtitle: Text(
+                        'Plano: ${dados['plano'] ?? 'Mensal'} | Valor: R\$ ${(dados['valorMensalidade'] ?? 0.0).toStringAsFixed(2)}',
+                      ),
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _obterCorStatus(status).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          status,
+                          style: TextStyle(
+                            color: _obterCorStatus(status),
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
+                      onTap: () => _abrirGerenciamentoFinanceiro(
+                        doc.id,
+                        dados['nome'] ?? 'Aluno',
+                        dados,
+                      ),
                     ),
-                    onTap: () => _abrirGerenciamentoFinanceiro(
-                      doc.id,
-                      dados['nome'] ?? 'Aluno',
-                      dados,
-                    ),
-                  ),
-                );
-              },
-            );
-          },
-        ),
-      ],
+                  );
+                },
+              ),
+          ],
+        );
+      },
     );
   }
 
