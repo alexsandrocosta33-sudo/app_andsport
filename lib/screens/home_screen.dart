@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -46,6 +47,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // CONTROLE PARA ANOTAÇÃO DE CARGA PELO ALUNO
   final _anotarCargaController = TextEditingController();
+
+  // VARIÁVEIS DO CRONÔMETRO DE DESCANSO EMBUTIDO
+  Timer? _descansoTimer;
+  int _tempoRestanteSegundos = 60;
+  int _tempoDefinidoPadrao = 60; // Permite alterar o padrão dinamicamente
+  bool _cronometroAtivo = false;
+  String _exercicioEmDescanso = '';
 
   // Controle de busca de alunos
   String _filtroBuscaAlunos = '';
@@ -184,6 +192,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _descansoTimer?.cancel();
     _grupoController.dispose();
     _seriesController.dispose();
     _cargaController.dispose();
@@ -205,6 +214,163 @@ class _HomeScreenState extends State<HomeScreen> {
     _editarEmailAlunoController.dispose();
     _anotarCargaController.dispose();
     super.dispose();
+  }
+
+  // LÓGICA DE ATIVAÇÃO DO CRONÔMETRO DE DESCANSO
+  void _iniciarCronometroDescanso(String nomeExercicio) {
+    _descansoTimer?.cancel();
+    setState(() {
+      _exercicioEmDescanso = nomeExercicio;
+      _tempoRestanteSegundos = _tempoDefinidoPadrao;
+      _cronometroAtivo = true;
+    });
+
+    _descansoTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_tempoRestanteSegundos > 0) {
+        setState(() {
+          _tempoRestanteSegundos--;
+        });
+      } else {
+        _finalizarCronometro();
+      }
+    });
+  }
+
+  void _finalizarCronometro() {
+    _descansoTimer?.cancel();
+    setState(() {
+      _cronometroAtivo = false;
+    });
+
+    // Alerta visual discreto na tela avisando o fim do descanso
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Descanso Concluído para: $_exercicioEmDescanso! Hora da próxima série! 🔥',
+          ),
+          backgroundColor: Colors.amber[800],
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
+  void _cancelarCronometro() {
+    _descansoTimer?.cancel();
+    setState(() {
+      _cronometroAtivo = false;
+      _exercicioEmDescanso = '';
+    });
+  }
+
+  // WIDGET VISUAL: Barra superior flutuante com contador e botões de ajuste dinâmico (+/-)
+  Widget _construirBarraPainelCronometro() {
+    if (!_cronometroAtivo) return const SizedBox();
+
+    int minutos = _tempoRestanteSegundos ~/ 60;
+    int segundos = _tempoRestanteSegundos % 60;
+    String tempoFormatado = '$minutos:${segundos.toString().padLeft(2, '0')}';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.amber,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.timer, color: Colors.black, size: 22),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Tempo de Descanso',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+                Text(
+                  _exercicioEmDescanso,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.black87,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Botão de diminuir descanso (-15s)
+          IconButton(
+            icon: const Icon(
+              Icons.remove_circle_outline,
+              color: Colors.black87,
+              size: 22,
+            ),
+            onPressed: () {
+              setState(() {
+                if (_tempoRestanteSegundos > 15) {
+                  _tempoRestanteSegundos -= 15;
+                  _tempoDefinidoPadrao = _tempoRestanteSegundos;
+                }
+              });
+            },
+          ),
+
+          // Mostrador Digital do Tempo
+          Text(
+            tempoFormatado,
+            style: const TextStyle(
+              color: Colors.black,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+
+          // Botão de aumentar descanso (+15s)
+          IconButton(
+            icon: const Icon(
+              Icons.add_circle_outline,
+              color: Colors.black87,
+              size: 22,
+            ),
+            onPressed: () {
+              setState(() {
+                _tempoRestanteSegundos += 15;
+                _tempoDefinidoPadrao = _tempoRestanteSegundos;
+              });
+            },
+          ),
+          const SizedBox(width: 4),
+
+          // Fechar/Cancelar
+          GestureDetector(
+            onTap: _cancelarCronometro,
+            child: const CircleAvatar(
+              radius: 12,
+              backgroundColor: Colors.black,
+              child: Icon(Icons.close, size: 14, color: Colors.amber),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _cadastrarNovoProfessor() async {
@@ -466,26 +632,26 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _abrirGerenciamentoFinanceiro(
-    String alunoId,
-    String nomeAluno,
-    Map<String, dynamic> dadosAtuais,
+    String clientID,
+    String clientName,
+    Map<String, dynamic> currentData,
   ) {
-    _planoSelecionadoAluno = dadosAtuais['plano'] ?? 'Mensal';
+    _planoSelecionadoAluno = currentData['plano'] ?? 'Mensal';
     _mensalidadeController.text =
-        (dadosAtuais['valorMensalidade'] ??
-                dadosAtuais['valor'] ??
-                dadosAtuais['mensalidade'] ??
+        (currentData['valorMensalidade'] ??
+                currentData['valor'] ??
+                currentData['mensalidade'] ??
                 _valoresPlanosCarregados[_planoSelecionadoAluno])
             .toString();
-    _vencimentoController.text = (dadosAtuais['diaVencimento'] ?? 10)
+    _vencimentoController.text = (currentData['diaVencimento'] ?? 10)
         .toString();
-    _statusPagamentoSelecionado = dadosAtuais['statusPagamento'] ?? 'Pendente';
+    _statusPagamentoSelecionado = currentData['statusPagamento'] ?? 'Pendente';
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setPopupState) => AlertDialog(
-          title: Text('Financeiro: $nomeAluno'),
+          title: Text('Financeiro: $clientName'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -526,7 +692,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onPressed: () async {
                 await FirebaseFirestore.instance
                     .collection('usuarios')
-                    .doc(alunoId)
+                    .doc(clientID)
                     .update({
                       'valorMensalidade':
                           double.tryParse(_mensalidadeController.text) ?? 0.0,
@@ -1273,7 +1439,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // CORREÇÃO CONCLUSIVA AQUI: Removido o 'c' extra do Dropdown
                     DropdownButtonFormField<String>(
                       value: _grupoSelecionadoParaNovoExercicio,
                       decoration: const InputDecoration(
@@ -1900,6 +2065,8 @@ class _HomeScreenState extends State<HomeScreen> {
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // PAINEL FLUTUANTE DO CRONÔMETRO DE DESCANSO (Aparece no topo do app do Aluno)
+                  _construirBarraPainelCronometro(),
                   StreamBuilder<DocumentSnapshot>(
                     stream: FirebaseFirestore.instance
                         .collection('usuarios')
@@ -2126,6 +2293,18 @@ class _HomeScreenState extends State<HomeScreen> {
                                 tooltip: 'Anotar Peso de Hoje',
                                 onPressed: () =>
                                     _abrirPopupAnotarCarga(nomeDoExercicioItem),
+                              ),
+                              // NOVO ÍCONE: Play/Check para disparar o cronômetro editável de descanso em tempo real
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.play_circle_outline,
+                                  color: Colors.amber,
+                                  size: 24,
+                                ),
+                                tooltip: 'Iniciar Descanso',
+                                onPressed: () => _iniciarCronometroDescanso(
+                                  nomeDoExercicioItem,
+                                ),
                               ),
                             ],
                           ],
