@@ -44,6 +44,9 @@ class _HomeScreenState extends State<HomeScreen> {
   final _editarNomeAlunoController = TextEditingController();
   final _editarEmailAlunoController = TextEditingController();
 
+  // CONTROLE PARA ANOTAÇÃO DE CARGA PELO ALUNO
+  final _anotarCargaController = TextEditingController();
+
   // Controle de busca de alunos
   String _filtroBuscaAlunos = '';
 
@@ -200,6 +203,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _editAnual.dispose();
     _editarNomeAlunoController.dispose();
     _editarEmailAlunoController.dispose();
+    _anotarCargaController.dispose();
     super.dispose();
   }
 
@@ -315,7 +319,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Dados do aluno updated! 📝'),
+                  content: Text('Dados do aluno atualizados! 📝'),
                   backgroundColor: Colors.green,
                 ),
               );
@@ -634,7 +638,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (nomeExercicio.isEmpty) return;
 
     await FirebaseFirestore.instance.collection('exercicios').add({
-      'nome': nomeExercicio,
+      'nome': nameExercicio,
       'grupo': _grupoSelecionadoParaNovoExercicio,
       'videoUrl': linkVideo.isEmpty ? '---' : linkVideo,
       'criadoEm': FieldValue.serverTimestamp(),
@@ -736,6 +740,187 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // NOVA FUNÇÃO: Salva a carga digitada pelo aluno na nuvem sem afetar os dados estruturais
+  void _salvarNovaCargaHistorico(String nomeExercicio, String novaCarga) async {
+    if (novaCarga.trim().isEmpty || _alunoSelecionadoId == null) return;
+
+    await FirebaseFirestore.instance
+        .collection('usuarios')
+        .doc(_alunoSelecionadoId)
+        .collection('historico_cargas')
+        .add({
+          'exercicio': nomeExercicio,
+          'carga': '$novaCarga kg',
+          'dataAnotacao': FieldValue.serverTimestamp(),
+        });
+
+    _anotarCargaController.clear();
+    if (!mounted) return;
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Nova carga registrada com sucesso! 💪'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  // NOVA TELA POPUP: Exibe o histórico de evolução de peso cronológico para o aluno ou professor
+  void _abrirHistoricoDeCargasDoExercicio(String nomeExercicio) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.trending_up, color: Colors.green),
+                SizedBox(width: 8),
+                Text(
+                  'Evolução de Força',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              nomeExercicio,
+              style: const TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 250,
+          child: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('usuarios')
+                .doc(_alunoSelecionadoId)
+                .collection('historico_cargas')
+                .where('exercicio', isEqualTo: nomeExercicio)
+                .orderBy('dataAnotacao', descending: true)
+                .snapshots(),
+            builder: (context, snapHist) {
+              if (!snapHist.hasData)
+                return const Center(
+                  child: CircularProgressIndicator(color: Colors.amber),
+                );
+              var logs = snapHist.data!.docs;
+
+              if (logs.isEmpty) {
+                return const Center(
+                  child: Text(
+                    'Nenhuma carga anotada para este exercício ainda.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                itemCount: logs.length,
+                itemBuilder: (context, idx) {
+                  var logData = logs[idx].data() as Map<String, dynamic>;
+                  String cargaReg = logData['carga'] ?? '---';
+
+                  String dataFormatada = 'Recente';
+                  if (logData['dataAnotacao'] != null) {
+                    var dataTime = (logData['dataAnotacao'] as Timestamp)
+                        .toDate();
+                    dataFormatada =
+                        '${dataTime.day.toString().padLeft(2, '0')}/${dataTime.month.toString().padLeft(2, '0')} às ${dataTime.hour.toString().padLeft(2, '0')}:${dataTime.minute.toString().padLeft(2, '0')}';
+                  }
+
+                  return ListTile(
+                    dense: true,
+                    leading: const Icon(
+                      Icons.fitness_center,
+                      size: 16,
+                      color: Colors.black87,
+                    ),
+                    title: Text(
+                      cargaReg,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    subtitle: Text(
+                      dataFormatada,
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fechar', style: TextStyle(color: Colors.black)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // NOVA TELA POPUP: Permite ao aluno digitar o peso levantado no dia
+  void _abrirPopupAnotarCarga(String nomeExercicio) {
+    _anotarCargaController.clear();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'Anotar Carga de Hoje',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Exercício: $nomeExercicio',
+              style: const TextStyle(fontSize: 13, color: Colors.blueGrey),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _anotarCargaController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Nova Carga (Somente número em kg)',
+                border: OutlineInputBorder(),
+                suffixText: 'kg',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: Colors.black),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.black,
+              foregroundColor: Colors.amber,
+            ),
+            onPressed: () => _salvarNovaCargaHistorico(
+              nomeExercicio,
+              _anotarCargaController.text,
+            ),
+            child: const Text('Gravar Peso'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _mostrarDetalhesExercicioAluno(Map<String, dynamic> dados) {
     showDialog(
       context: context,
@@ -771,7 +956,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Carga Configurada: ${dados['carga'] ?? '---'}',
+              'Carga Base do Professor: ${dados['carga'] ?? '---'}',
               style: const TextStyle(
                 fontSize: 16,
                 color: Colors.blueAccent,
@@ -1494,7 +1679,6 @@ class _HomeScreenState extends State<HomeScreen> {
             if (cargo == 'aluno') {
               alunosFiltrados.add(doc);
 
-              // VARREDURA INTELIGENTE DE CAMPOS: Mapeia qualquer nome de campo de preço estruturado no banco
               double valor = 0.0;
               if (d['valorMensalidade'] != null) {
                 valor =
@@ -1830,6 +2014,8 @@ class _HomeScreenState extends State<HomeScreen> {
             return Column(
               children: treinos.map((t) {
                 final dadosTratados = t.data() as Map<String, dynamic>;
+                String nomeDoExercicioItem =
+                    dadosTratados['exercicios'] ?? 'Exercício';
 
                 return Card(
                   color: Colors.white,
@@ -1869,7 +2055,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    dadosTratados['exercicios'] ?? 'Exercício',
+                                    nomeDoExercicioItem,
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 15,
@@ -1877,7 +2063,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    '${dadosTratados['grupo'] ?? ''} | Reps: ${dadosTratados['series'] ?? ''} | Carga: ${dadosTratados['carga'] ?? ''}',
+                                    '${dadosTratados['grupo'] ?? ''} | Reps: ${dadosTratados['series'] ?? ''} | Base: ${dadosTratados['carga'] ?? ''}',
                                     style: TextStyle(
                                       color: Colors.grey[600],
                                       fontSize: 13,
@@ -1888,10 +2074,27 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                         ),
-                        if (_eProfessor)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
+
+                        // INTEGRADO: Ícones Dinâmicos de Histórico e Peso no Fim de Cada Card de Treino
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // ÍCONE 1: Histórico Geral (Ver evolução cronológica de peso)
+                            IconButton(
+                              icon: const Icon(
+                                Icons.history,
+                                color: Colors.blueGrey,
+                                size: 22,
+                              ),
+                              tooltip: 'Ver Evolução de Força',
+                              onPressed: () =>
+                                  _abrirHistoricoDeCargasDoExercicio(
+                                    nomeDoExercicioItem,
+                                  ),
+                            ),
+
+                            // ÍCONE 2: Diferenciação entre Aluno (Anotar) e Professor (Editar)
+                            if (_eProfessor) ...[
                               IconButton(
                                 icon: const Icon(
                                   Icons.edit,
@@ -1900,7 +2103,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 onPressed: () => _abrirConfiguracaoExercicio(
                                   dadosTratados['grupo'] ?? '',
-                                  dadosTratados['exercicios'] ?? '',
+                                  nomeDoExercicioItem,
                                   treinoId: t.id,
                                   seriesAtual: dadosTratados['series'],
                                   cargaAtual: dadosTratados['carga'],
@@ -1918,18 +2121,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                   t.id,
                                 ),
                               ),
+                            ] else ...[
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.scale,
+                                  color: Colors.green,
+                                  size: 22,
+                                ),
+                                tooltip: 'Anotar Peso de Hoje',
+                                onPressed: () =>
+                                    _abrirPopupAnotarCarga(nomeDoExercicioItem),
+                              ),
                             ],
-                          )
-                        else
-                          IconButton(
-                            icon: const Icon(
-                              Icons.info_outline,
-                              color: Colors.blueGrey,
-                              size: 22,
-                            ),
-                            onPressed: () =>
-                                _mostrarDetalhesExercicioAluno(dadosTratados),
-                          ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
