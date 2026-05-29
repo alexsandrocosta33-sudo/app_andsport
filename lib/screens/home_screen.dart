@@ -638,7 +638,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (nomeExercicio.isEmpty) return;
 
     await FirebaseFirestore.instance.collection('exercicios').add({
-      'nome': nameExercicio,
+      'nome': nomeExercicio,
       'grupo': _grupoSelecionadoParaNovoExercicio,
       'videoUrl': linkVideo.isEmpty ? '---' : linkVideo,
       'criadoEm': FieldValue.serverTimestamp(),
@@ -740,7 +740,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // NOVA FUNÇÃO: Salva a carga digitada pelo aluno na nuvem sem afetar os dados estruturais
   void _salvarNovaCargaHistorico(String nomeExercicio, String novaCarga) async {
     if (novaCarga.trim().isEmpty || _alunoSelecionadoId == null) return;
 
@@ -765,7 +764,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // NOVA TELA POPUP: Exibe o histórico de evolução de peso cronológico para o aluno ou professor
   void _abrirHistoricoDeCargasDoExercicio(String nomeExercicio) {
     showDialog(
       context: context,
@@ -867,7 +865,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // NOVA TELA POPUP: Permite ao aluno digitar o peso levantado no dia
   void _abrirPopupAnotarCarga(String nomeExercicio) {
     _anotarCargaController.clear();
     showDialog(
@@ -1276,6 +1273,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // CORREÇÃO CONCLUSIVA AQUI: Removido o 'c' extra do Dropdown
                     DropdownButtonFormField<String>(
                       value: _grupoSelecionadoParaNovoExercicio,
                       decoration: const InputDecoration(
@@ -2075,11 +2073,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
 
-                        // INTEGRADO: Ícones Dinâmicos de Histórico e Peso no Fim de Cada Card de Treino
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // ÍCONE 1: Histórico Geral (Ver evolução cronológica de peso)
                             IconButton(
                               icon: const Icon(
                                 Icons.history,
@@ -2093,7 +2089,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                             ),
 
-                            // ÍCONE 2: Diferenciação entre Aluno (Anotar) e Professor (Editar)
                             if (_eProfessor) ...[
                               IconButton(
                                 icon: const Icon(
