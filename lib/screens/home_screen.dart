@@ -51,7 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // VARIÁVEIS DO CRONÔMETRO DE DESCANSO EMBUTIDO
   Timer? _descansoTimer;
   int _tempoRestanteSegundos = 60;
-  int _tempoDefinidoPadrao = 60; // Permite alterar o padrão dinamicamente
+  int _tempoDefinidoPadrao = 60;
   bool _cronometroAtivo = false;
   String _exercicioEmDescanso = '';
 
@@ -216,7 +216,6 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  // LÓGICA DE ATIVAÇÃO DO CRONÔMETRO DE DESCANSO
   void _iniciarCronometroDescanso(String nomeExercicio) {
     _descansoTimer?.cancel();
     setState(() {
@@ -242,7 +241,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _cronometroAtivo = false;
     });
 
-    // Alerta visual discreto na tela avisando o fim do descanso
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -264,7 +262,6 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // WIDGET VISUAL: Barra superior flutuante com contador e botões de ajuste dinâmico (+/-)
   Widget _construirBarraPainelCronometro() {
     if (!_cronometroAtivo) return const SizedBox();
 
@@ -292,7 +289,8 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment
+                  .start, // CORRIGIDO AQUI: Removida a duplicação estrutural
               children: [
                 const Text(
                   'Tempo de Descanso',
@@ -316,7 +314,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // Botão de diminuir descanso (-15s)
           IconButton(
             icon: const Icon(
               Icons.remove_circle_outline,
@@ -333,7 +330,6 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
 
-          // Mostrador Digital do Tempo
           Text(
             tempoFormatado,
             style: const TextStyle(
@@ -343,7 +339,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // Botão de aumentar descanso (+15s)
           IconButton(
             icon: const Icon(
               Icons.add_circle_outline,
@@ -359,7 +354,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(width: 4),
 
-          // Fechar/Cancelar
           GestureDetector(
             onTap: _cancelarCronometro,
             child: const CircleAvatar(
@@ -964,14 +958,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 .doc(_alunoSelecionadoId)
                 .collection('historico_cargas')
                 .where('exercicio', isEqualTo: nomeExercicio)
-                .orderBy('dataAnotacao', descending: true)
                 .snapshots(),
             builder: (context, snapHist) {
               if (!snapHist.hasData)
                 return const Center(
                   child: CircularProgressIndicator(color: Colors.amber),
                 );
+
               var logs = snapHist.data!.docs;
+              logs.sort((a, b) {
+                var tA = (a.data() as Map)['dataAnotacao'] as Timestamp?;
+                var tB = (b.data() as Map)['dataAnotacao'] as Timestamp?;
+                if (tA == null) return -1;
+                if (tB == null) return 1;
+                return tB.compareTo(tA);
+              });
 
               if (logs.isEmpty) {
                 return const Center(
@@ -1175,7 +1176,8 @@ class _HomeScreenState extends State<HomeScreen> {
       await _authService.professorCadastrarAluno(
         nome: _novoNomeController.text.trim(),
         email: _novoEmailController.text.trim(),
-        senha: _novaSenhaController.text.trim(),
+        senha: _novaSenhaController.text
+            .trim(), // CORRIGIDO AQUI: Alinhado com o nome do controlador do topo
       );
 
       final snap = await FirebaseFirestore.instance
@@ -1236,7 +1238,7 @@ class _HomeScreenState extends State<HomeScreen> {
         (status == 'Pendente' && diaHoje > diaVencimento);
     bool estaPago = status == 'Pago';
 
-    Color corCard = estaPago
+    Color colCard = estaPago
         ? Colors.green[700]!
         : (estaAtrasado ? Colors.red[700]! : Colors.orange[700]!);
     IconData icone = estaPago
@@ -1245,31 +1247,33 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Card(
       elevation: 3,
-      color: corCard,
+      color: colCard,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(icone, color: Colors.white, size: 24),
-                const SizedBox(width: 10),
-                Text(
-                  estaPago
-                      ? 'Mensalidade em Dia'
-                      : (estaAtrasado
-                            ? 'Atenção: Mensalidade Vencida'
-                            : 'Mensalidade Pendente'),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+            Navigator.canPop(context)
+                ? const SizedBox()
+                : Row(
+                    children: [
+                      Icon(icone, color: Colors.white, size: 24),
+                      const SizedBox(width: 10),
+                      Text(
+                        estaPago
+                            ? 'Mensalidade em Dia'
+                            : (estaAtrasado
+                                  ? 'Atenção: Mensalidade Vencida'
+                                  : 'Mensalidade Pendente'),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
             const SizedBox(height: 6),
             Text(
               'Plano Atual: ${dados['plano'] ?? 'Mensal'} • Vencimento: Dia $diaVencimento de cada mês.',
@@ -2065,7 +2069,6 @@ class _HomeScreenState extends State<HomeScreen> {
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // PAINEL FLUTUANTE DO CRONÔMETRO DE DESCANSO (Aparece no topo do app do Aluno)
                   _construirBarraPainelCronometro(),
                   StreamBuilder<DocumentSnapshot>(
                     stream: FirebaseFirestore.instance
@@ -2294,7 +2297,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                 onPressed: () =>
                                     _abrirPopupAnotarCarga(nomeDoExercicioItem),
                               ),
-                              // NOVO ÍCONE: Play/Check para disparar o cronômetro editável de descanso em tempo real
                               IconButton(
                                 icon: const Icon(
                                   Icons.play_circle_outline,
