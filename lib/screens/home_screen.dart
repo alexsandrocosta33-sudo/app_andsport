@@ -25,6 +25,10 @@ class _HomeScreenState extends State<HomeScreen> {
   final _novoExercicioCardapioController = TextEditingController();
   final _videoUrlController = TextEditingController();
 
+  // NOVOS CONTROLES PARA ALUNO (FOTO E CELULAR)
+  final _novoCelularController = TextEditingController();
+  final _novaFotoUrlController = TextEditingController();
+
   // CONTROLES DE CADASTRO DE PROFESSOR
   final _profNomeController = TextEditingController();
   final _profEmailController = TextEditingController();
@@ -45,6 +49,8 @@ class _HomeScreenState extends State<HomeScreen> {
   // CONTROLES PARA EDIÇÃO DE ALUNO EXISTENTE
   final _editarNomeAlunoController = TextEditingController();
   final _editarEmailAlunoController = TextEditingController();
+  final _editarCelularAlunoController = TextEditingController();
+  final _editarFotoUrlAlunoController = TextEditingController();
 
   // CONTROLE PARA ANOTAÇÃO DE CARGA PELO ALUNO
   final _anotarCargaController = TextEditingController();
@@ -202,6 +208,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _novaSenhaController.dispose();
     _novoExercicioCardapioController.dispose();
     _videoUrlController.dispose();
+    _novoCelularController.dispose();
+    _novaFotoUrlController.dispose();
     _profNomeController.dispose();
     _profEmailController.dispose();
     _profSenhaController.dispose();
@@ -213,6 +221,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _editAnual.dispose();
     _editarNomeAlunoController.dispose();
     _editarEmailAlunoController.dispose();
+    _editarCelularAlunoController.dispose();
+    _editarFotoUrlAlunoController.dispose();
     _anotarCargaController.dispose();
     super.dispose();
   }
@@ -222,8 +232,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _exercicioEmDescanso = nomeExercicio;
       _tempoRestanteSegundos = _tempoDefinidoPadrao;
-      _cronometroAtivo =
-          true; // CORRIGIDO AQUI: Removida a linha com caracteres corrompidos
+      _cronometroAtivo = true;
     });
 
     _descansoTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -406,11 +415,13 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _abrirEdicaoDadosAluno() {
+  void _abrirEdicaoDadosAluno(Map<String, dynamic> dadosAtuais) {
     if (_alunoSelecionadoId == null) return;
 
-    _editarNomeAlunoController.text = _alunoSelecionadoNome ?? '';
-    _editarEmailAlunoController.text = _alunoSelecionadoEmail ?? '';
+    _editarNomeAlunoController.text = dadosAtuais['nome'] ?? '';
+    _editarEmailAlunoController.text = dadosAtuais['email'] ?? '';
+    _editarCelularAlunoController.text = dadosAtuais['celular'] ?? '';
+    _editarFotoUrlAlunoController.text = dadosAtuais['fotoUrl'] ?? '';
 
     showDialog(
       context: context,
@@ -425,26 +436,46 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _editarNomeAlunoController,
-              decoration: const InputDecoration(
-                labelText: 'Nome do Aluno',
-                border: OutlineInputBorder(),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _editarNomeAlunoController,
+                decoration: const InputDecoration(
+                  labelText: 'Nome do Aluno',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _editarEmailAlunoController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'E-mail de Acesso',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _editarEmailAlunoController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'E-mail de Acesso',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              TextField(
+                controller: _editarCelularAlunoController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'Número de Celular',
+                  hintText: '(11) 99999-9999',
+                  border: OutlineInputBorder(),
+                ), // CORRIGIDO: placeholder trocado por hintText
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _editarFotoUrlAlunoController,
+                decoration: const InputDecoration(
+                  labelText: 'Link/URL da Foto do Aluno',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -468,6 +499,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   .update({
                     'nome': _editarNomeAlunoController.text.trim(),
                     'email': _editarEmailAlunoController.text.trim(),
+                    'celular': _editarCelularAlunoController.text.trim(),
+                    'fotoUrl': _editarFotoUrlAlunoController.text.trim(),
                   });
 
               setState(() {
@@ -1010,7 +1043,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
               return Column(
                 children: [
-                  // CORRIGIDO AQUI: Trocado o SizedBox com padding por um widget Padding estrutural nativo
                   Padding(
                     padding: const EdgeInsets.only(right: 18, top: 10, left: 4),
                     child: SizedBox(
@@ -1292,12 +1324,21 @@ class _HomeScreenState extends State<HomeScreen> {
           'diaVencimento': 10,
           'plano': 'Mensal',
           'valorMensalidade': 80.0,
+          'celular': _novoCelularController.text.trim().isEmpty
+              ? '---'
+              : _novoCelularController.text.trim(),
+          'fotoUrl': _novaFotoUrlController.text.trim().isEmpty
+              ? '---'
+              : _novaFotoUrlController.text.trim(),
         });
       }
 
       _novoNomeController.clear();
       _novoEmailController.clear();
       _novaSenhaController.clear();
+      _novoCelularController.clear();
+      _novaFotoUrlController.clear();
+
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1676,6 +1717,24 @@ class _HomeScreenState extends State<HomeScreen> {
                         border: OutlineInputBorder(),
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _novoCelularController,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(
+                        labelText: 'Celular/WhatsApp (Opcional)',
+                        hintText: '(11) 99999-9999',
+                        border: OutlineInputBorder(),
+                      ),
+                    ), // CORRIGIDO: placeholder trocado por hintText
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _novaFotoUrlController,
+                      decoration: const InputDecoration(
+                        labelText: 'URL da Foto do Aluno (Opcional)',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
                     const SizedBox(height: 12),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
@@ -1739,22 +1798,30 @@ class _HomeScreenState extends State<HomeScreen> {
                 var dados = doc.data() as Map<String, dynamic>;
                 bool selecionado = _alunoSelecionadoId == doc.id;
 
+                String celularAluno = dados['celular'] ?? '---';
+                String fotoUrlAluno = dados['fotoUrl'] ?? '---';
+
                 return Card(
                   color: selecionado ? Colors.amber[100] : Colors.white,
                   child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.black,
-                      foregroundColor: Colors.amber,
-                      child: Text(
-                        dados['nome']?[0].toString().toUpperCase() ?? 'A',
-                      ),
-                    ),
+                    leading: fotoUrlAluno != '---' && fotoUrlAluno.isNotEmpty
+                        ? CircleAvatar(
+                            backgroundImage: NetworkImage(fotoUrlAluno),
+                            backgroundColor: Colors.black,
+                          )
+                        : CircleAvatar(
+                            backgroundColor: Colors.black,
+                            foregroundColor: Colors.amber,
+                            child: Text(
+                              dados['nome']?[0].toString().toUpperCase() ?? 'A',
+                            ),
+                          ),
                     title: Text(
                       dados['nome'] ?? 'Sem nome',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     subtitle: Text(
-                      'Vence dia: ${dados['diaVencimento'] ?? 10} | Status: ${dados['statusPagamento'] ?? 'Pendente'}',
+                      'Tel: $celularAluno | Vence dia: ${dados['diaVencimento'] ?? 10}',
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -1771,7 +1838,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               _alunoSelecionadoNome = dados['nome'];
                               _alunoSelecionadoEmail = dados['email'];
                             });
-                            _abrirEdicaoDadosAluno();
+                            _abrirEdicaoDadosAluno(dados);
                           },
                         ),
                         IconButton(
