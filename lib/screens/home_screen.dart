@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../services/auth_service.dart';
 import '../services/workout_service.dart';
 
@@ -221,7 +222,8 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _exercicioEmDescanso = nomeExercicio;
       _tempoRestanteSegundos = _tempoDefinidoPadrao;
-      _cronometroAtivo = true;
+      _cronometroAtivo =
+          true; // CORRIGIDO AQUI: Removida a linha com caracteres corrompidos
     });
 
     _descansoTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -289,8 +291,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment
-                  .start, // CORRIGIDO AQUI: Removida a duplicação estrutural
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
                   'Tempo de Descanso',
@@ -951,7 +952,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         content: SizedBox(
           width: double.maxFinite,
-          height: 250,
+          height: 380,
           child: StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('usuarios')
@@ -966,12 +967,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
 
               var logs = snapHist.data!.docs;
+
               logs.sort((a, b) {
                 var tA = (a.data() as Map)['dataAnotacao'] as Timestamp?;
                 var tB = (b.data() as Map)['dataAnotacao'] as Timestamp?;
                 if (tA == null) return -1;
                 if (tB == null) return 1;
-                return tB.compareTo(tA);
+                return tA.compareTo(tB);
               });
 
               if (logs.isEmpty) {
@@ -984,40 +986,140 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               }
 
-              return ListView.builder(
-                itemCount: logs.length,
-                itemBuilder: (context, idx) {
-                  var logData = logs[idx].data() as Map<String, dynamic>;
-                  String cargaReg = logData['carga'] ?? '---';
+              List<FlSpot> pontosDoGrafico = [];
+              double maiorCargaEncontrada = 0.0;
 
-                  String dataFormatada = 'Recente';
-                  if (logData['dataAnotacao'] != null) {
-                    var dataTime = (logData['dataAnotacao'] as Timestamp)
-                        .toDate();
-                    dataFormatada =
-                        '${dataTime.day.toString().padLeft(2, '0')}/${dataTime.month.toString().padLeft(2, '0')} às ${dataTime.hour.toString().padLeft(2, '0')}:${dataTime.minute.toString().padLeft(2, '0')}';
-                  }
+              for (int index = 0; index < logs.length; index++) {
+                var dadosLog = logs[index].data() as Map<String, dynamic>;
+                String textoCarga = dadosLog['carga'] ?? '0';
 
-                  return ListTile(
-                    dense: true,
-                    leading: const Icon(
-                      Icons.fitness_center,
-                      size: 16,
-                      color: Colors.black87,
-                    ),
-                    title: Text(
-                      cargaReg,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                String apenasNumeros = textoCarga.replaceAll(' kg', '').trim();
+                double valorNumericoCarga =
+                    double.tryParse(apenasNumeros) ?? 0.0;
+
+                if (valorNumericoCarga > maiorCargaEncontrada) {
+                  maiorCargaEncontrada = valorNumericoCarga;
+                }
+
+                pontosDoGrafico.add(
+                  FlSpot(index.toDouble(), valorNumericoCarga),
+                );
+              }
+
+              var logsExibicaoTexto = List.from(logs.reversed);
+
+              return Column(
+                children: [
+                  // CORRIGIDO AQUI: Trocado o SizedBox com padding por um widget Padding estrutural nativo
+                  Padding(
+                    padding: const EdgeInsets.only(right: 18, top: 10, left: 4),
+                    child: SizedBox(
+                      height: 160,
+                      child: LineChart(
+                        LineChartData(
+                          gridData: const FlGridData(
+                            show: true,
+                            drawVerticalLine: false,
+                          ),
+                          titlesData: const FlTitlesData(
+                            rightTitles: AxisTitles(
+                              sideTitles: SideTitles(showTitles: false),
+                            ),
+                            topTitles: AxisTitles(
+                              sideTitles: SideTitles(showTitles: false),
+                            ),
+                            bottomTitles: AxisTitles(
+                              sideTitles: SideTitles(showTitles: false),
+                            ),
+                            leftTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                reservedSize: 32,
+                              ),
+                            ),
+                          ),
+                          borderData: FlBorderData(
+                            show: true,
+                            border: Border(
+                              bottom: BorderSide(
+                                color: Colors.grey[300]!,
+                                width: 1,
+                              ),
+                              left: BorderSide(
+                                color: Colors.grey[300]!,
+                                width: 1,
+                              ),
+                            ),
+                          ),
+                          minX: 0,
+                          maxX: logs.length > 1
+                              ? (logs.length - 1).toDouble()
+                              : 1,
+                          minY: 0,
+                          maxY: maiorCargaEncontrada > 0
+                              ? (maiorCargaEncontrada + 10)
+                              : 50,
+                          lineBarsData: [
+                            LineChartBarData(
+                              spots: pontosDoGrafico,
+                              isCurved: true,
+                              color: Colors.green[600],
+                              barWidth: 3,
+                              isStrokeCapRound: true,
+                              dotData: const FlDotData(show: true),
+                              belowBarData: BarAreaData(
+                                show: true,
+                                color: Colors.green[600]!.withOpacity(0.15),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    subtitle: Text(
-                      dataFormatada,
-                      style: const TextStyle(fontSize: 11),
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: logsExibicaoTexto.length,
+                      itemBuilder: (context, idx) {
+                        var logData =
+                            logsExibicaoTexto[idx].data()
+                                as Map<String, dynamic>;
+                        String cargaReg = logData['carga'] ?? '---';
+
+                        String dataFormatada = 'Recente';
+                        if (logData['dataAnotacao'] != null) {
+                          var dataTime = (logData['dataAnotacao'] as Timestamp)
+                              .toDate();
+                          dataFormatada =
+                              '${dataTime.day.toString().padLeft(2, '0')}/${dataTime.month.toString().padLeft(2, '0')} às ${dataTime.hour.toString().padLeft(2, '0')}:${dataTime.minute.toString().padLeft(2, '0')}';
+                        }
+
+                        return ListTile(
+                          dense: true,
+                          leading: const Icon(
+                            Icons.fitness_center,
+                            size: 16,
+                            color: Colors.black87,
+                          ),
+                          title: Text(
+                            cargaReg,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          subtitle: Text(
+                            dataFormatada,
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
+                  ),
+                ],
               );
             },
           ),
@@ -1176,8 +1278,7 @@ class _HomeScreenState extends State<HomeScreen> {
       await _authService.professorCadastrarAluno(
         nome: _novoNomeController.text.trim(),
         email: _novoEmailController.text.trim(),
-        senha: _novaSenhaController.text
-            .trim(), // CORRIGIDO AQUI: Alinhado com o nome do controlador do topo
+        senha: _novaSenhaController.text.trim(),
       );
 
       final snap = await FirebaseFirestore.instance
@@ -1254,26 +1355,24 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Navigator.canPop(context)
-                ? const SizedBox()
-                : Row(
-                    children: [
-                      Icon(icone, color: Colors.white, size: 24),
-                      const SizedBox(width: 10),
-                      Text(
-                        estaPago
-                            ? 'Mensalidade em Dia'
-                            : (estaAtrasado
-                                  ? 'Atenção: Mensalidade Vencida'
-                                  : 'Mensalidade Pendente'),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
+            Row(
+              children: [
+                Icon(icone, color: Colors.white, size: 24),
+                const SizedBox(width: 10),
+                Text(
+                  estaPago
+                      ? 'Mensalidade em Dia'
+                      : (estaAtrasado
+                            ? 'Atenção: Mensalidade Vencida'
+                            : 'Mensalidade Pendente'),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
                   ),
+                ),
+              ],
+            ),
             const SizedBox(height: 6),
             Text(
               'Plano Atual: ${dados['plano'] ?? 'Mensal'} • Vencimento: Dia $diaVencimento de cada mês.',
