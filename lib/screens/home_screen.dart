@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:convert'; // Import necessário para converter a foto em texto leve
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:image_picker/image_picker.dart'; // Nova biblioteca de câmera integrada
 import '../services/auth_service.dart';
 import '../services/workout_service.dart';
 
@@ -25,9 +28,12 @@ class _HomeScreenState extends State<HomeScreen> {
   final _novoExercicioCardapioController = TextEditingController();
   final _videoUrlController = TextEditingController();
 
-  // NOVOS CONTROLES PARA ALUNO (FOTO E CELULAR)
+  // CONTROLES PARA ALUNO (CELULAR)
   final _novoCelularController = TextEditingController();
-  final _novaFotoUrlController = TextEditingController();
+
+  // VARIÁVEIS PARA ARMAZENAR A FOTO TIRADA NA HORA
+  String? _fotoBase64NovaMatricula;
+  String? _fotoBase64Edicao;
 
   // CONTROLES DE CADASTRO DE PROFESSOR
   final _profNomeController = TextEditingController();
@@ -50,7 +56,6 @@ class _HomeScreenState extends State<HomeScreen> {
   final _editarNomeAlunoController = TextEditingController();
   final _editarEmailAlunoController = TextEditingController();
   final _editarCelularAlunoController = TextEditingController();
-  final _editarFotoUrlAlunoController = TextEditingController();
 
   // CONTROLE PARA ANOTAÇÃO DE CARGA PELO ALUNO
   final _anotarCargaController = TextEditingController();
@@ -209,7 +214,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _novoExercicioCardapioController.dispose();
     _videoUrlController.dispose();
     _novoCelularController.dispose();
-    _novaFotoUrlController.dispose();
     _profNomeController.dispose();
     _profEmailController.dispose();
     _profSenhaController.dispose();
@@ -222,9 +226,35 @@ class _HomeScreenState extends State<HomeScreen> {
     _editarNomeAlunoController.dispose();
     _editarEmailAlunoController.dispose();
     _editarCelularAlunoController.dispose();
-    _editarFotoUrlAlunoController.dispose();
     _anotarCargaController.dispose();
     super.dispose();
+  }
+
+  // LÓGICA COLETORA: Dispara o hardware da câmera nativa e comprime a foto
+  Future<void> _tirarFotoNaHora(bool eEdicao) async {
+    final picker = ImagePicker();
+    try {
+      final XFile? fotoCapturada = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth:
+            400, // Limita largura e altura para a imagem não estourar o banco
+        maxHeight: 400,
+        imageQuality: 75, // Comprime a qualidade para salvar instantaneamente
+      );
+
+      if (fotoCapturada != null) {
+        final bytes = await fotoCapturada.readAsBytes();
+        setState(() {
+          if (eEdicao) {
+            _fotoBase64Edicao = base64Encode(bytes);
+          } else {
+            _fotoBase64NovaMatricula = base64Encode(bytes);
+          }
+        });
+      }
+    } catch (e) {
+      print("Erro ao acessar camera: $e");
+    }
   }
 
   void _iniciarCronometroDescanso(String nomeExercicio) {
@@ -421,106 +451,141 @@ class _HomeScreenState extends State<HomeScreen> {
     _editarNomeAlunoController.text = dadosAtuais['nome'] ?? '';
     _editarEmailAlunoController.text = dadosAtuais['email'] ?? '';
     _editarCelularAlunoController.text = dadosAtuais['celular'] ?? '';
-    _editarFotoUrlAlunoController.text = dadosAtuais['fotoUrl'] ?? '';
+    _fotoBase64Edicao = dadosAtuais['fotoBase64'] ?? dadosAtuais['fotoUrl'];
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.edit, color: Colors.orange),
-            SizedBox(width: 8),
-            Text(
-              'Editar Cadastro',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setPopupState) => AlertDialog(
+          title: const Row(
             children: [
-              TextField(
-                controller: _editarNomeAlunoController,
-                decoration: const InputDecoration(
-                  labelText: 'Nome do Aluno',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _editarEmailAlunoController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                  labelText: 'E-mail de Acesso',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _editarCelularAlunoController,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Número de Celular',
-                  hintText: '(11) 99999-9999',
-                  border: OutlineInputBorder(),
-                ), // CORRIGIDO: placeholder trocado por hintText
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _editarFotoUrlAlunoController,
-                decoration: const InputDecoration(
-                  labelText: 'Link/URL da Foto do Aluno',
-                  border: OutlineInputBorder(),
-                ),
+              Icon(Icons.edit, color: Colors.orange),
+              SizedBox(width: 8),
+              Text(
+                'Editar Cadastro',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Cancelar',
-              style: TextStyle(color: Colors.black),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.black,
-              foregroundColor: Colors.amber,
-            ),
-            onPressed: () async {
-              if (_editarNomeAlunoController.text.trim().isEmpty) return;
-
-              await FirebaseFirestore.instance
-                  .collection('usuarios')
-                  .doc(_alunoSelecionadoId)
-                  .update({
-                    'nome': _editarNomeAlunoController.text.trim(),
-                    'email': _editarEmailAlunoController.text.trim(),
-                    'celular': _editarCelularAlunoController.text.trim(),
-                    'fotoUrl': _editarFotoUrlAlunoController.text.trim(),
-                  });
-
-              setState(() {
-                _alunoSelecionadoNome = _editarNomeAlunoController.text.trim();
-                _alunoSelecionadoEmail = _editarEmailAlunoController.text
-                    .trim();
-              });
-
-              if (!mounted) return;
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Dados do aluno atualizados! 📝'),
-                  backgroundColor: Colors.green,
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // PREVIEW E BOTÃO DA CÂMERA NA EDIÇÃO
+                Center(
+                  child: Column(
+                    children: [
+                      _fotoBase64Edicao != null &&
+                              _fotoBase64Edicao != '---' &&
+                              _fotoBase64Edicao!.isNotEmpty
+                          ? CircleAvatar(
+                              radius: 45,
+                              backgroundImage: MemoryImage(
+                                base64Decode(_fotoBase64Edicao!),
+                              ),
+                            )
+                          : const CircleAvatar(
+                              radius: 45,
+                              backgroundColor: Colors.black26,
+                              child: Icon(
+                                Icons.person,
+                                size: 40,
+                                color: Colors.white,
+                              ),
+                            ),
+                      TextButton.icon(
+                        icon: const Icon(
+                          Icons.camera_alt,
+                          color: Colors.orange,
+                        ),
+                        label: const Text(
+                          'Atualizar Foto do Aluno',
+                          style: TextStyle(color: Colors.orange),
+                        ),
+                        onPressed: () async {
+                          await _tirarFotoNaHora(true);
+                          setPopupState(() {});
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              );
-            },
-            child: const Text('Salvar'),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _editarNomeAlunoController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nome do Aluno',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _editarEmailAlunoController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: 'E-mail de Acesso',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _editarCelularAlunoController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Número de Celular',
+                    hintText: '(11) 99999-9999',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'Cancelar',
+                style: TextStyle(color: Colors.black),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.amber,
+              ),
+              onPressed: () async {
+                if (_editarNomeAlunoController.text.trim().isEmpty) return;
+
+                await FirebaseFirestore.instance
+                    .collection('usuarios')
+                    .doc(_alunoSelecionadoId)
+                    .update({
+                      'nome': _editarNomeAlunoController.text.trim(),
+                      'email': _editarEmailAlunoController.text.trim(),
+                      'celular': _editarCelularAlunoController.text.trim(),
+                      'fotoBase64': _fotoBase64Edicao ?? '---',
+                    });
+
+                setState(() {
+                  _alunoSelecionadoNome = _editarNomeAlunoController.text
+                      .trim();
+                  _alunoSelecionadoEmail = _editarEmailAlunoController.text
+                      .trim();
+                });
+
+                if (!mounted) return;
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Dados do aluno atualizados! 📝'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              },
+              child: const Text('Salvar'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1327,9 +1392,9 @@ class _HomeScreenState extends State<HomeScreen> {
           'celular': _novoCelularController.text.trim().isEmpty
               ? '---'
               : _novoCelularController.text.trim(),
-          'fotoUrl': _novaFotoUrlController.text.trim().isEmpty
-              ? '---'
-              : _novaFotoUrlController.text.trim(),
+          'fotoBase64':
+              _fotoBase64NovaMatricula ??
+              '---', // Gravando a imagem stringizada
         });
       }
 
@@ -1337,7 +1402,9 @@ class _HomeScreenState extends State<HomeScreen> {
       _novoEmailController.clear();
       _novaSenhaController.clear();
       _novoCelularController.clear();
-      _novaFotoUrlController.clear();
+      setState(() {
+        _fotoBase64NovaMatricula = null;
+      });
 
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1693,6 +1760,43 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.all(12.0),
                 child: Column(
                   children: [
+                    // REQUADRO DA CÂMERA NA NOVA MATRÍCULA
+                    StatefulBuilder(
+                      builder: (context, setMatriculaState) => Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _fotoBase64NovaMatricula != null
+                              ? CircleAvatar(
+                                  radius: 36,
+                                  backgroundImage: MemoryImage(
+                                    base64Decode(_fotoBase64NovaMatricula!),
+                                  ),
+                                )
+                              : const CircleAvatar(
+                                  radius: 36,
+                                  backgroundColor: Colors.black12,
+                                  child: Icon(
+                                    Icons.camera_enhance,
+                                    color: Colors.black38,
+                                  ),
+                                ),
+                          const SizedBox(width: 14),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey[800],
+                              foregroundColor: Colors.amber,
+                            ),
+                            icon: const Icon(Icons.camera_alt),
+                            label: const Text('Tirar Foto Agora'),
+                            onPressed: () async {
+                              await _tirarFotoNaHora(false);
+                              setMatriculaState(() {});
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     TextField(
                       controller: _novoNomeController,
                       decoration: const InputDecoration(
@@ -1722,16 +1826,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       controller: _novoCelularController,
                       keyboardType: TextInputType.phone,
                       decoration: const InputDecoration(
-                        labelText: 'Celular/WhatsApp (Opcional)',
+                        labelText: 'Celular/WhatsApp',
                         hintText: '(11) 99999-9999',
-                        border: OutlineInputBorder(),
-                      ),
-                    ), // CORRIGIDO: placeholder trocado por hintText
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _novaFotoUrlController,
-                      decoration: const InputDecoration(
-                        labelText: 'URL da Foto do Aluno (Opcional)',
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -1799,14 +1895,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 bool selecionado = _alunoSelecionadoId == doc.id;
 
                 String celularAluno = dados['celular'] ?? '---';
-                String fotoUrlAluno = dados['fotoUrl'] ?? '---';
+                String fotoSalvaMemory = dados['fotoBase64'] ?? '---';
 
                 return Card(
                   color: selecionado ? Colors.amber[100] : Colors.white,
                   child: ListTile(
-                    leading: fotoUrlAluno != '---' && fotoUrlAluno.isNotEmpty
+                    // EXIBIÇÃO DA FOTO EM MEMÓRIA (Se houver texto base64, decodifica em foto, se não usa a inicial)
+                    leading:
+                        fotoSalvaMemory != '---' && fotoSalvaMemory.isNotEmpty
                         ? CircleAvatar(
-                            backgroundImage: NetworkImage(fotoUrlAluno),
+                            backgroundImage: MemoryImage(
+                              base64Decode(fotoSalvaMemory),
+                            ),
                             backgroundColor: Colors.black,
                           )
                         : CircleAvatar(
