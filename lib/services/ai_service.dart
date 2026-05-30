@@ -18,8 +18,11 @@ class AIService {
 
     try {
       final model = GenerativeModel(
-        model: 'models/gemini-1.5-flash',
+        model: 'gemini-1.5-flash',
         apiKey: _apiKey,
+        requestOptions: const RequestOptions(
+          apiVersion: 'v1',
+        ), // Forma correta aceita pelo pacote
       );
 
       final prompt =
