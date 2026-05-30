@@ -1,43 +1,31 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:google_generative_ai/google_generative_ai.dart';
 
 class AIService {
-  // Sua chave AQ. perfeitamente vinculada e ativa
+  // Sua chave AQ. definitiva obtida no console
   final String _apiKey =
       'AQ.Ab8RN6LdNCvzQEinjHXqhuiBPMs9fyO198x6iHrlawP0glwIEw';
 
+  // Instancia o modelo oficial usando o SDK do Google
+  GenerativeModel _obterModelo() {
+    return GenerativeModel(model: 'gemini-1.5-flash', apiKey: _apiKey);
+  }
+
   Future<String> _executarChamadaVertex(String prompt) async {
-    // Como você marcou a "Gemini API" nas restrições da chave,
-    // usamos obrigatoriamente esta URL abaixo. Ela aceita o parâmetro ?key= direto.
-    final url = Uri.parse(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$_apiKey',
-    );
-
     try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'contents': [
-            {
-              'role': 'user',
-              'parts': [
-                {'text': prompt},
-              ],
-            },
-          ],
-        }),
-      );
+      final model = _obterModelo();
+      final content = [Content.text(prompt)];
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['candidates'][0]['content']['parts'][0]['text'];
+      // O próprio SDK se encarrega de empacotar a chave AQ. no formato aceito pelo Google
+      final response = await model.generateContent(content);
+
+      if (response.text != null) {
+        return response.text!;
       } else {
-        // Se houver qualquer detalhe, o erro completo vai aparecer na tela
-        return "Erro na resposta da API (${response.statusCode}): ${response.body}";
+        return "A IA não retornou nenhuma resposta para este prompt.";
       }
     } catch (e) {
-      return "Erro de conexão: $e";
+      // Caso o Google Cloud aponte alguma falta de permissão interna, o erro sairá limpo aqui
+      return "Erro na execução do Gemini: $e";
     }
   }
 
