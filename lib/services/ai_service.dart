@@ -4,7 +4,8 @@ import 'package:http/http.dart' as http;
 class AIService {
   // ATENÇÃO: Substitua 'SUA_CHAVE_AIZA_AQUI' pela chave que começa com AIza
   // que você copiou do console do Google Cloud (aquela obtida em 7_12.jpg).
-  final String _apiKey = 'SUA_CHAVE_AIZA_AQUI';
+  final String _apiKey =
+      'AQ.Ab8RN6LdNCvzQEinjHXqhuiBPMs9fyO198x6iHrIawP0glwIEw';
 
   Future<String> _executarChamadaVertex(String prompt) async {
     // Esta URL utiliza o endpoint do Google Generative Language,
