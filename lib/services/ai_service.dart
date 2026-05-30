@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class AIService {
-  // Sua chave de API atual mantida
+  // Sua chave real capturada no print 7_10.jpg
   final String _apiKey =
-      'AQ.Ab8RN6Johx-1z38kq_Xkqp7W7n6DWIcRzVyZSase85QjWtt_Rg';
+      'AQ.Ab8RN6KkUsADyS4S_SOqo3-bw7iuxsrnqiHnrza6QSvFh18X8Q';
 
   // Método do Copiloto do Professor: Monta o esqueleto do treino baseado na biblioteca
   Future<String> gerarSugestaoTreino({
@@ -37,14 +37,14 @@ class AIService {
     Lista de exercícios cadastrados na biblioteca da academia: ${listaValida.join(', ')}
     
     Selecione de 4 a 6 exercícios dessa lista que melhor se encaixam no objetivo e nível informados. 
-    Retorne uma resposta corta, direta e formatada em tópicos, dizendo o nome do exercício e sugerindo uma quantidade de séries e repetições (ex: 4x10 ou 3x12) ideal para o caso.
+    Retorne uma resposta curta, direta e formatada em tópicos, dizendo o nome do exercício e sugerindo uma quantidade de séries e repetições (ex: 4x10 ou 3x12) ideal para o caso.
     Seja motivador e direto ao ponto, sem introduções longas.
     ''';
 
     try {
-      // Retornando para a URL pública v1 estável, adicionando cabeçalho de compatibilidade bypass
+      // URL AJUSTADA: Endpoint do Firebase Vertex apontando para o número exato do projeto: 1054648561946
       final url = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=$_apiKey',
+        'https://firebasevertexai.googleapis.com/v1beta/projects/1054648561946/locations/global/models/gemini-1.5-flash:generateContent?key=$_apiKey',
       );
 
       final response = await http.post(
@@ -53,6 +53,7 @@ class AIService {
         body: jsonEncode({
           'contents': [
             {
+              'role': 'user',
               'parts': [
                 {'text': prompt},
               ],
@@ -98,7 +99,7 @@ class AIService {
 
     try {
       final url = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=$_apiKey',
+        'https://firebasevertexai.googleapis.com/v1beta/projects/1054648561946/locations/global/models/gemini-1.5-flash:generateContent?key=$_apiKey',
       );
 
       final response = await http.post(
@@ -107,6 +108,7 @@ class AIService {
         body: jsonEncode({
           'contents': [
             {
+              'role': 'user',
               'parts': [
                 {'text': prompt},
               ],
