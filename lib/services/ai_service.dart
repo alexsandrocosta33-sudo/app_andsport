@@ -43,8 +43,9 @@ class AIService {
 
     try {
       // URL CORRIGIDA: Forçando a rota v1beta exigida para chaves modernas do tipo AQ.
+      // Modifique nas duas funções do seu arquivo:
       final url = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$_apiKey',
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=$_apiKey',
       );
 
       final response = await http.post(
@@ -98,8 +99,9 @@ class AIService {
 
     try {
       // URL CORRIGIDA: Forçando a rota v1beta exigida para chaves modernas do tipo AQ.
+      // Modifique nas duas funções do seu arquivo:
       final url = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$_apiKey',
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=$_apiKey',
       );
 
       final response = await http.post(
