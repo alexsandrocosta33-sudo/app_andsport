@@ -45,7 +45,7 @@ class AIService {
       // URL CORRIGIDA: Forçando a rota v1beta exigida para chaves modernas do tipo AQ.
       // Modifique nas duas funções do seu arquivo:
       final url = Uri.parse(
-        'https://vertexai-proactive.googleapis.com/v1beta1/models/gemini-1.5-flash:generateContent?key=$_apiKey',
+        'https://firebasevertexai.googleapis.com/v1beta/projects/aplicativo-andsport/locations/global/models/gemini-1.5-flash:generateContent?key=$_apiKey',
       );
 
       final response = await http.post(
@@ -101,7 +101,7 @@ class AIService {
       // URL CORRIGIDA: Forçando a rota v1beta exigida para chaves modernas do tipo AQ.
       // Modifique nas duas funções do seu arquivo:
       final url = Uri.parse(
-        'https://vertexai-proactive.googleapis.com/v1beta1/models/gemini-1.5-flash:generateContent?key=$_apiKey',
+        'https://firebasevertexai.googleapis.com/v1beta/projects/aplicativo-andsport/locations/global/models/gemini-1.5-flash:generateContent?key=$_apiKey',
       );
 
       final response = await http.post(
