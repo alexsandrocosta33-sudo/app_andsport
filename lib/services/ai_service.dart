@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class AIService {
-  // Sua chave de API atualizada que começa com AQ.
+  // Sua chave de API real do Google AI Studio
   final String _apiKey =
       'AQ.Ab8RN6Johx-1z38kq_Xkqp7W7n6DWIcRzVyZSase85QjWtt_Rg';
 
@@ -42,9 +42,9 @@ class AIService {
     ''';
 
     try {
-      // Endpoint estável regional do Google Vertex AI que aceita chaves AQ de forma direta por HTTP
+      // URL AJUSTADA: Usando o ID numérico exato do projeto (466812836261) retornado pelo erro do Google
       final url = Uri.parse(
-        'https://us-central1-aiplatform.googleapis.com/v1/projects/aplicativo-andsport/locations/us-central1/publishers/google/models/gemini-1.5-flash:generateContent?key=$_apiKey',
+        'https://us-central1-aiplatform.googleapis.com/v1/projects/466812836261/locations/us-central1/publishers/google/models/gemini-1.5-flash:generateContent?key=$_apiKey',
       );
 
       final response = await http.post(
@@ -99,7 +99,7 @@ class AIService {
 
     try {
       final url = Uri.parse(
-        'https://us-central1-aiplatform.googleapis.com/v1/projects/aplicativo-andsport/locations/us-central1/publishers/google/models/gemini-1.5-flash:generateContent?key=$_apiKey',
+        'https://us-central1-aiplatform.googleapis.com/v1/projects/466812836261/locations/us-central1/publishers/google/models/gemini-1.5-flash:generateContent?key=$_apiKey',
       );
 
       final response = await http.post(
