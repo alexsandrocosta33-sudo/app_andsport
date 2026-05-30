@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class AIService {
-  // Sua chave de API real do Google AI Studio
+  // Sua nova chave de API gerada
   final String _apiKey =
-      'AQ.Ab8RN6KsoK9aMys2oVOZCZrgLsyvyjv4NiOsCaEtqhtScm0Xkw';
+      'AQ.Ab8RN6Johx-1z38kq_Xkqp7W7n6DWIcRzVyZSase85QjWtt_Rg';
 
   // Método do Copiloto do Professor: Monta o esqueleto do treino baseado na biblioteca
   Future<String> gerarSugestaoTreino({
@@ -36,20 +36,23 @@ class AIService {
     Nível do Aluno: $nivel
     Lista de exercícios cadastrados na biblioteca da academia: ${listaValida.join(', ')}
     
-    Selecione de 4 a 6 exercícios dessa lista que melhor se encaixam no objetivo e nível informados. 
+    Selecione de 4 a 6 exercícios dessa lista que melhor se encaixam do objetivo e nível informados. 
     Retorne uma resposta curta, direta e formatada em tópicos, dizendo o nome do exercício e sugerindo uma quantidade de séries e repetições (ex: 4x10 ou 3x12) ideal para o caso.
     Seja motivador e direto ao ponto, sem introduções longas.
     ''';
 
     try {
-      // URL AVALIADA: Rota pública direta sem as travas de escopo de projeto para evitar o Failed to fetch
+      // Usando o proxy público para quebrar o bloqueio de CORS do navegador com chaves AQ.
       final url = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$_apiKey',
+        'https://cors-anywhere.herokuapp.com/https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$_apiKey',
       );
 
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
         body: jsonEncode({
           'contents': [
             {
@@ -69,7 +72,7 @@ class AIService {
         return "Erro na API do Google (${response.statusCode}): ${response.body}";
       }
     } catch (e) {
-      return "Erro ao conectar com a IA: $e. Tente dar Ctrl+F5.";
+      return "Erro ao conectar com a IA: $e. Tente novamente.";
     }
   }
 
@@ -98,12 +101,15 @@ class AIService {
 
     try {
       final url = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$_apiKey',
+        'https://cors-anywhere.herokuapp.com/https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$_apiKey',
       );
 
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
         body: jsonEncode({
           'contents': [
             {
