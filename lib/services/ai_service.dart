@@ -2,14 +2,13 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class AIService {
-  // ATENÇÃO: Substitua 'SUA_CHAVE_AIZA_AQUI' pela chave que começa com AIza
-  // que você copiou do console do Google Cloud (aquela obtida em 7_12.jpg).
-  final String _apiKey = 'SUA_CHAVE_AIZA_AQUI';
+  // Sua chave AQ. validada e vinculada à Gemini API
+  final String _apiKey =
+      'AQ.Ab8RN6LdNCvzQEinjHXqhuiBPMs9fyO198x6iHrlawP0glwIEw';
 
   Future<String> _executarChamadaVertex(String prompt) async {
-    // Esta URL utiliza o endpoint do Google Generative Language,
-    // que é o formato correto para autenticação via Chave de API (AIza).
-    // Substitua a variável 'url' por esta:
+    // Endpoint público da Generative Language API, totalmente compatível
+    // com a permissão da Gemini API que você ativou no painel.
     final url = Uri.parse(
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$_apiKey',
     );
@@ -32,7 +31,6 @@ class AIService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        // O caminho dos dados na resposta da API Generative Language é este:
         return data['candidates'][0]['content']['parts'][0]['text'];
       } else {
         return "Erro na API (${response.statusCode}): ${response.body}";
@@ -48,7 +46,7 @@ class AIService {
     required List<String> exerciciosDisponiveis,
   }) async {
     return _executarChamadaVertex(
-      'Crie um treino para objetivo $objetivo, nível $nivel com: ${exerciciosDisponiveis.join(', ')}',
+      'Crie um treino estruturado para o objetivo "$objetivo", nível "$nivel". Use apenas estes exercícios: ${exerciciosDisponiveis.join(', ')}.',
     );
   }
 
@@ -57,7 +55,7 @@ class AIService {
     required List<String> historicoCargas,
   }) async {
     return _executarChamadaVertex(
-      'Analise a progressão do $nomeExercicio: ${historicoCargas.join(' -> ')}',
+      'Analise a progressão de carga do exercício "$nomeExercicio". Histórico: ${historicoCargas.join(' -> ')}. Dê um feedback curto e motivador.',
     );
   }
 }
