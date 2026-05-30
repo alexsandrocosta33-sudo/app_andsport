@@ -1,14 +1,15 @@
 import 'dart:async';
-import 'dart:convert'; // Import necessário para converter a foto em texto leve
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:image_picker/image_picker.dart'; // Nova biblioteca de câmera integrada
+import 'package:image_picker/image_picker.dart';
 import '../services/auth_service.dart';
 import '../services/workout_service.dart';
+import '../services/ai_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -27,8 +28,6 @@ class _HomeScreenState extends State<HomeScreen> {
   final _novaSenhaController = TextEditingController();
   final _novoExercicioCardapioController = TextEditingController();
   final _videoUrlController = TextEditingController();
-
-  // CONTROLES PARA ALUNO (CELULAR)
   final _novoCelularController = TextEditingController();
 
   // VARIÁVEIS PARA ARMAZENAR A FOTO TIRADA NA HORA
@@ -55,7 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // CONTROLES PARA EDIÇÃO DE ALUNO EXISTENTE
   final _editarNomeAlunoController = TextEditingController();
   final _editarEmailAlunoController = TextEditingController();
-  final _editarCelularAlunoController = TextEditingController();
+  final _editarCellularAlunoController = TextEditingController();
 
   // CONTROLE PARA ANOTAÇÃO DE CARGA PELO ALUNO
   final _anotarCargaController = TextEditingController();
@@ -83,6 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final _workoutService = WorkoutService();
   final _authService = AuthService();
+  final _aiService = AIService();
   final _auth = FirebaseAuth.instance;
 
   String? _alunoSelecionadoId;
@@ -202,44 +202,14 @@ class _HomeScreenState extends State<HomeScreen> {
         });
   }
 
-  @override
-  void dispose() {
-    _descansoTimer?.cancel();
-    _grupoController.dispose();
-    _seriesController.dispose();
-    _cargaController.dispose();
-    _novoNomeController.dispose();
-    _novoEmailController.dispose();
-    _novaSenhaController.dispose();
-    _novoExercicioCardapioController.dispose();
-    _videoUrlController.dispose();
-    _novoCelularController.dispose();
-    _profNomeController.dispose();
-    _profEmailController.dispose();
-    _profSenhaController.dispose();
-    _mensalidadeController.dispose();
-    _vencimentoController.dispose();
-    _editMensalController.dispose();
-    _editTrimestralController.dispose();
-    _editSemestralController.dispose();
-    _editAnual.dispose();
-    _editarNomeAlunoController.dispose();
-    _editarEmailAlunoController.dispose();
-    _editarCelularAlunoController.dispose();
-    _anotarCargaController.dispose();
-    super.dispose();
-  }
-
-  // LÓGICA COLETORA: Dispara o hardware da câmera nativa e comprime a foto
   Future<void> _tirarFotoNaHora(bool eEdicao) async {
     final picker = ImagePicker();
     try {
       final XFile? fotoCapturada = await picker.pickImage(
         source: ImageSource.camera,
-        maxWidth:
-            400, // Limita largura e altura para a imagem não estourar o banco
+        maxWidth: 400,
         maxHeight: 400,
-        imageQuality: 75, // Comprime a qualidade para salvar instantaneamente
+        imageQuality: 75,
       );
 
       if (fotoCapturada != null) {
@@ -306,9 +276,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _construirBarraPainelCronometro() {
     if (!_cronometroAtivo) return const SizedBox();
 
-    int minutos = _tempoRestanteSegundos ~/ 60;
-    int segundos = _tempoRestanteSegundos % 60;
-    String tempoFormatado = '$minutos:${segundos.toString().padLeft(2, '0')}';
+    int minutes = _tempoRestanteSegundos ~/ 60;
+    int seconds = _tempoRestanteSegundos % 60;
+    String tempoFormatado = '$minutes:${seconds.toString().padLeft(2, '0')}';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -353,7 +323,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-
           IconButton(
             icon: const Icon(
               Icons.remove_circle_outline,
@@ -369,7 +338,6 @@ class _HomeScreenState extends State<HomeScreen> {
               });
             },
           ),
-
           Text(
             tempoFormatado,
             style: const TextStyle(
@@ -378,7 +346,6 @@ class _HomeScreenState extends State<HomeScreen> {
               fontWeight: FontWeight.w900,
             ),
           ),
-
           IconButton(
             icon: const Icon(
               Icons.add_circle_outline,
@@ -393,7 +360,6 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           const SizedBox(width: 4),
-
           GestureDetector(
             onTap: _cancelarCronometro,
             child: const CircleAvatar(
@@ -450,33 +416,31 @@ class _HomeScreenState extends State<HomeScreen> {
 
     _editarNomeAlunoController.text = dadosAtuais['nome'] ?? '';
     _editarEmailAlunoController.text = dadosAtuais['email'] ?? '';
-    _editarCelularAlunoController.text = dadosAtuais['celular'] ?? '';
-    _fotoBase64Edicao = dadosAtuais['fotoBase64'] ?? dadosAtuais['fotoUrl'];
+    _editarCellularAlunoController.text = dadosAtuais['celular'] ?? '';
+    _fotoBase64Edicao = dadosAtuais['fotoBase64'] ?? '---';
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setPopupState) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.edit, color: Colors.orange),
-              SizedBox(width: 8),
-              Text(
-                'Editar Cadastro',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          content: SingleChildScrollView(
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.edit, color: Colors.orange),
+            SizedBox(width: 8),
+            Text(
+              'Editar Cadastro',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: StatefulBuilder(
+          builder: (context, setPopupState) => SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // PREVIEW E BOTÃO DA CÂMERA NA EDIÇÃO
                 Center(
                   child: Column(
                     children: [
-                      _fotoBase64Edicao != null &&
-                              _fotoBase64Edicao != '---' &&
+                      _fotoBase64Edicao != '---' &&
                               _fotoBase64Edicao!.isNotEmpty
                           ? CircleAvatar(
                               radius: 45,
@@ -529,7 +493,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextField(
-                  controller: _editarCelularAlunoController,
+                  controller: _editarCellularAlunoController,
                   keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(
                     labelText: 'Número de Celular',
@@ -540,52 +504,51 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text(
-                'Cancelar',
-                style: TextStyle(color: Colors.black),
-              ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.amber,
-              ),
-              onPressed: () async {
-                if (_editarNomeAlunoController.text.trim().isEmpty) return;
-
-                await FirebaseFirestore.instance
-                    .collection('usuarios')
-                    .doc(_alunoSelecionadoId)
-                    .update({
-                      'nome': _editarNomeAlunoController.text.trim(),
-                      'email': _editarEmailAlunoController.text.trim(),
-                      'celular': _editarCelularAlunoController.text.trim(),
-                      'fotoBase64': _fotoBase64Edicao ?? '---',
-                    });
-
-                setState(() {
-                  _alunoSelecionadoNome = _editarNomeAlunoController.text
-                      .trim();
-                  _alunoSelecionadoEmail = _editarEmailAlunoController.text
-                      .trim();
-                });
-
-                if (!mounted) return;
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Dados do aluno atualizados! 📝'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              },
-              child: const Text('Salvar'),
-            ),
-          ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: Colors.black),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.black,
+              foregroundColor: Colors.amber,
+            ),
+            onPressed: () async {
+              if (_editarNomeAlunoController.text.trim().isEmpty) return;
+
+              await FirebaseFirestore.instance
+                  .collection('usuarios')
+                  .doc(_alunoSelecionadoId)
+                  .update({
+                    'nome': _editarNomeAlunoController.text.trim(),
+                    'email': _editarEmailAlunoController.text.trim(),
+                    'celular': _editarCellularAlunoController.text.trim(),
+                    'fotoBase64': _fotoBase64Edicao ?? '---',
+                  });
+
+              setState(() {
+                _alunoSelecionadoNome = _editarNomeAlunoController.text.trim();
+                _alunoSelecionadoEmail = _editarEmailAlunoController.text
+                    .trim();
+              });
+
+              if (!mounted) return;
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Dados do aluno atualizados! 📝'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            child: const Text('Salvar'),
+          ),
+        ],
       ),
     );
   }
@@ -816,7 +779,6 @@ class _HomeScreenState extends State<HomeScreen> {
       autoPlay: true,
       params: const YoutubePlayerParams(
         showControls: true,
-        showFullscreenButton: false,
         mute: true,
         loop: true,
       ),
@@ -1023,267 +985,205 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _abrirHistoricoDeCargasDoExercicio(String nomeExercicio) {
+  void _matricularNovoAluno() async {
+    if (_novoNomeController.text.isEmpty ||
+        _novoEmailController.text.isEmpty ||
+        _novaSenhaController.text.isEmpty)
+      return;
+    try {
+      await _authService.professorCadastrarAluno(
+        nome: _novoNomeController.text.trim(),
+        email: _novoEmailController.text.trim(),
+        senha: _novaSenhaController.text.trim(),
+      );
+
+      final snap = await FirebaseFirestore.instance
+          .collection('usuarios')
+          .where('email', isEqualTo: _novoEmailController.text.trim())
+          .get();
+      if (snap.docs.isNotEmpty) {
+        await snap.docs.first.reference.update({
+          'cargo': 'aluno',
+          'statusPagamento': 'Pendente',
+          'diaVencimento': 10,
+          'plano': 'Mensal',
+          'valorMensalidade': 80.0,
+          'celular': _novoCelularController.text.trim().isEmpty
+              ? '---'
+              : _novoCelularController.text.trim(),
+          'fotoBase64': _fotoBase64NovaMatricula ?? '---',
+        });
+      }
+
+      _novoNomeController.clear();
+      _novoEmailController.clear();
+      _novaSenhaController.clear();
+      _novoCelularController.clear();
+      setState(() {
+        _fotoBase64NovaMatricula = null;
+      });
+
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Aluno matriculado com sucesso! 🚀'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      print(e);
+    }
+  }
+
+  void _abrirPopupCopilotoIA(List<String> bibliotecaExercicios) {
+    String objetivoSelecionado = 'Hipertrofia';
+    String nivelSelecionado = 'Intermediário';
+    String resultadoIA = '';
+    bool processandoIA = false;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
+      builder: (context) => StatefulBuilder(
+        builder: (context, setPopupState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.psychology, color: Colors.amber),
+              SizedBox(width: 8),
+              Text(
+                'Copiloto IA: Montar Ficha',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.trending_up, color: Colors.green),
-                SizedBox(width: 8),
-                Text(
-                  'Evolução de Força',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                const Text(
+                  'Defina o perfil do aluno para o Gemini sugerir a ficha:',
+                  style: TextStyle(fontSize: 13, color: Colors.blueGrey),
                 ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              nomeExercicio,
-              style: const TextStyle(fontSize: 13, color: Colors.grey),
-            ),
-          ],
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          height: 380,
-          child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('usuarios')
-                .doc(_alunoSelecionadoId)
-                .collection('historico_cargas')
-                .where('exercicio', isEqualTo: nomeExercicio)
-                .snapshots(),
-            builder: (context, snapHist) {
-              if (!snapHist.hasData)
-                return const Center(
-                  child: CircularProgressIndicator(color: Colors.amber),
-                );
-
-              var logs = snapHist.data!.docs;
-
-              logs.sort((a, b) {
-                var tA = (a.data() as Map)['dataAnotacao'] as Timestamp?;
-                var tB = (b.data() as Map)['dataAnotacao'] as Timestamp?;
-                if (tA == null) return -1;
-                if (tB == null) return 1;
-                return tA.compareTo(tB);
-              });
-
-              if (logs.isEmpty) {
-                return const Center(
-                  child: Text(
-                    'Nenhuma carga anotada para este exercício ainda.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: objetivoSelecionado,
+                  decoration: const InputDecoration(
+                    labelText: 'Objetivo Principal',
+                    border: OutlineInputBorder(),
                   ),
-                );
-              }
-
-              List<FlSpot> pontosDoGrafico = [];
-              double maiorCargaEncontrada = 0.0;
-
-              for (int index = 0; index < logs.length; index++) {
-                var dadosLog = logs[index].data() as Map<String, dynamic>;
-                String textoCarga = dadosLog['carga'] ?? '0';
-
-                String apenasNumeros = textoCarga.replaceAll(' kg', '').trim();
-                double valorNumericoCarga =
-                    double.tryParse(apenasNumeros) ?? 0.0;
-
-                if (valorNumericoCarga > maiorCargaEncontrada) {
-                  maiorCargaEncontrada = valorNumericoCarga;
-                }
-
-                pontosDoGrafico.add(
-                  FlSpot(index.toDouble(), valorNumericoCarga),
-                );
-              }
-
-              var logsExibicaoTexto = List.from(logs.reversed);
-
-              return Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 18, top: 10, left: 4),
-                    child: SizedBox(
-                      height: 160,
-                      child: LineChart(
-                        LineChartData(
-                          gridData: const FlGridData(
-                            show: true,
-                            drawVerticalLine: false,
+                  items:
+                      [
+                            'Hipertrofia',
+                            'Emagrecimento / Definição',
+                            'Resistência Muscular',
+                            'Força Máxima',
+                          ]
+                          .map(
+                            (o) => DropdownMenuItem(value: o, child: Text(o)),
+                          )
+                          .toList(),
+                  onChanged: (v) =>
+                      setPopupState(() => objetivoSelecionado = v!),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String>(
+                  value: nivelSelecionado,
+                  decoration: const InputDecoration(
+                    labelText: 'Nível Atual',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: ['Iniciante', 'Intermediário', 'Avançado']
+                      .map((n) => DropdownMenuItem(value: n, child: Text(n)))
+                      .toList(),
+                  onChanged: (v) => setPopupState(() => nivelSelecionado = v!),
+                ),
+                const SizedBox(height: 14),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.amber,
+                    foregroundColor: Colors.black,
+                    minimumSize: const Size.fromHeight(40),
+                  ),
+                  onPressed: processandoIA
+                      ? null
+                      : () async {
+                          setPopupState(() => processandoIA = true);
+                          final resposta = await _aiService.gerarSugestaoTreino(
+                            objetivo: objetivoSelecionado,
+                            nivel: nivelSelecionado,
+                            exerciciosDisponiveis: bibliotecaExercicios,
+                          );
+                          setPopupState(() {
+                            resultadoIA = resposta;
+                            processandoIA = false;
+                          });
+                        },
+                  child: processandoIA
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.black,
+                            strokeWidth: 2,
                           ),
-                          titlesData: const FlTitlesData(
-                            rightTitles: AxisTitles(
-                              sideTitles: SideTitles(showTitles: false),
-                            ),
-                            topTitles: AxisTitles(
-                              sideTitles: SideTitles(showTitles: false),
-                            ),
-                            bottomTitles: AxisTitles(
-                              sideTitles: SideTitles(showTitles: false),
-                            ),
-                            leftTitles: AxisTitles(
-                              sideTitles: SideTitles(
-                                showTitles: true,
-                                reservedSize: 32,
-                              ),
-                            ),
-                          ),
-                          borderData: FlBorderData(
-                            show: true,
-                            border: Border(
-                              bottom: BorderSide(
-                                color: Colors.grey[300]!,
-                                width: 1,
-                              ),
-                              left: BorderSide(
-                                color: Colors.grey[300]!,
-                                width: 1,
-                              ),
-                            ),
-                          ),
-                          minX: 0,
-                          maxX: logs.length > 1
-                              ? (logs.length - 1).toDouble()
-                              : 1,
-                          minY: 0,
-                          maxY: maiorCargaEncontrada > 0
-                              ? (maiorCargaEncontrada + 10)
-                              : 50,
-                          lineBarsData: [
-                            LineChartBarData(
-                              spots: pontosDoGrafico,
-                              isCurved: true,
-                              color: Colors.green[600],
-                              barWidth: 3,
-                              isStrokeCapRound: true,
-                              dotData: const FlDotData(show: true),
-                              belowBarData: BarAreaData(
-                                show: true,
-                                color: Colors.green[600]!.withOpacity(0.15),
-                              ),
-                            ),
-                          ],
+                        )
+                      : const Text(
+                          'Consultar Gemini IA 🚀',
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
+                ),
+                if (resultadoIA.isNotEmpty) ...[
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 10),
+                    child: Divider(),
+                  ),
+                  const Text(
+                    'Sugestão do Copiloto:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      resultadoIA,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        height: 1.4,
+                        color: Colors.black87,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  const Divider(height: 1),
-
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: logsExibicaoTexto.length,
-                      itemBuilder: (context, idx) {
-                        var logData =
-                            logsExibicaoTexto[idx].data()
-                                as Map<String, dynamic>;
-                        String cargaReg = logData['carga'] ?? '---';
-
-                        String dataFormatada = 'Recente';
-                        if (logData['dataAnotacao'] != null) {
-                          var dataTime = (logData['dataAnotacao'] as Timestamp)
-                              .toDate();
-                          dataFormatada =
-                              '${dataTime.day.toString().padLeft(2, '0')}/${dataTime.month.toString().padLeft(2, '0')} às ${dataTime.hour.toString().padLeft(2, '0')}:${dataTime.minute.toString().padLeft(2, '0')}';
-                        }
-
-                        return ListTile(
-                          dense: true,
-                          leading: const Icon(
-                            Icons.fitness_center,
-                            size: 16,
-                            color: Colors.black87,
-                          ),
-                          title: Text(
-                            cargaReg,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                          subtitle: Text(
-                            dataFormatada,
-                            style: const TextStyle(fontSize: 11),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
                 ],
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Fechar', style: TextStyle(color: Colors.black)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _abrirPopupAnotarCarga(String nomeExercicio) {
-    _anotarCargaController.clear();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text(
-          'Anotar Carga de Hoje',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Exercício: $nomeExercicio',
-              style: const TextStyle(fontSize: 13, color: Colors.blueGrey),
+              ],
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _anotarCargaController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Nova Carga (Somente número em kg)',
-                border: OutlineInputBorder(),
-                suffixText: 'kg',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'Fechar',
+                style: TextStyle(color: Colors.black),
               ),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Cancelar',
-              style: TextStyle(color: Colors.black),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.black,
-              foregroundColor: Colors.amber,
-            ),
-            onPressed: () => _salvarNovaCargaHistorico(
-              nomeExercicio,
-              _anotarCargaController.text,
-            ),
-            child: const Text('Gravar Peso'),
-          ),
-        ],
       ),
     );
   }
 
+  // REPOSICIONADA: Função de exibição de detalhes (Antigo erro resolvido)
   void _mostrarDetalhesExercicioAluno(Map<String, dynamic> dados) {
     showDialog(
       context: context,
@@ -1353,6 +1253,319 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // REPOSICIONADA: Função coletora de carga de treino (Antigo erro resolvido)
+  void _abrirPopupAnotarCarga(String nomeExercicio) {
+    _anotarCargaController.clear();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'Anotar Carga de Hoje',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Exercício: $nomeExercicio',
+              style: const TextStyle(fontSize: 13, color: Colors.blueGrey),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _anotarCargaController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Nova Carga (Somente número em kg)',
+                border: OutlineInputBorder(),
+                suffixText: 'kg',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: Colors.black),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.black,
+              foregroundColor: Colors.amber,
+            ),
+            onPressed: () => _salvarNovaCargaHistorico(
+              nomeExercicio,
+              _anotarCargaController.text,
+            ),
+            child: const Text('Gravar Peso'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _abrirHistoricoDeCargasDoExercicio(String nomeExercicio) {
+    String analiseIA = "Carregando análise inteligente de carga...";
+    bool carregouIA = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.trending_up, color: Colors.green),
+                SizedBox(width: 8),
+                Text(
+                  'Evolução de Força',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              nomeExercicio,
+              style: const TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 470,
+          child: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('usuarios')
+                .doc(_alunoSelecionadoId)
+                .collection('historico_cargas')
+                .where('exercicio', isEqualTo: nomeExercicio)
+                .snapshots(),
+            builder: (context, snapHist) {
+              if (!snapHist.hasData)
+                return const Center(
+                  child: CircularProgressIndicator(color: Colors.amber),
+                );
+
+              var logs = snapHist.data!.docs;
+
+              logs.sort((a, b) {
+                var tA = (a.data() as Map)['dataAnotacao'] as Timestamp?;
+                var tB = (b.data() as Map)['dataAnotacao'] as Timestamp?;
+                if (tA == null) return -1;
+                if (tB == null) return 1;
+                return tA.compareTo(tB);
+              });
+
+              if (logs.isEmpty) {
+                return const Center(
+                  child: Text(
+                    'Nenhuma carga anotada para este exercício ainda.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                  ),
+                );
+              }
+
+              List<String> listaPesosOrdenados = [];
+              List<FlSpot> pontosDoGrafico = [];
+              double maiorCargaEncontrada = 0.0;
+
+              for (int index = 0; index < logs.length; index++) {
+                var dadosLog = logs[index].data() as Map<String, dynamic>;
+                String textoCarga = dadosLog['carga'] ?? '0';
+                listaPesosOrdenados.add(textoCarga);
+
+                String apenasNumeros = textoCarga.replaceAll(' kg', '').trim();
+                double valorNumericoCarga =
+                    double.tryParse(apenasNumeros) ?? 0.0;
+
+                if (valorNumericoCarga > maiorCargaEncontrada) {
+                  maiorCargaEncontrada = valorNumericoCarga;
+                }
+
+                pontosDoGrafico.add(
+                  FlSpot(index.toDouble(), valorNumericoCarga),
+                );
+              }
+
+              if (!carregouIA) {
+                carregouIA = true;
+                _aiService
+                    .analisarProgressaoCarga(
+                      nomeExercicio: nomeExercicio,
+                      historicoCargas: listaPesosOrdenados,
+                    )
+                    .then((res) {
+                      if (mounted) {
+                        (context as Element).markNeedsBuild();
+                        analiseIA = res;
+                      }
+                    });
+              }
+
+              var logsExibicaoTexto = List.from(logs.reversed);
+
+              return Column(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 14),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey[300]!),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.auto_awesome,
+                          color: Colors.green,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            analiseIA,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              height: 1.4,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 18, top: 10, left: 4),
+                    child: SizedBox(
+                      height: 140,
+                      child: LineChart(
+                        LineChartData(
+                          gridData: const FlGridData(
+                            show: true,
+                            drawVerticalLine: false,
+                          ),
+                          titlesData: const FlTitlesData(
+                            rightTitles: AxisTitles(
+                              sideTitles: SideTitles(showTitles: false),
+                            ),
+                            topTitles: AxisTitles(
+                              sideTitles: SideTitles(showTitles: false),
+                            ),
+                            bottomTitles: AxisTitles(
+                              sideTitles: SideTitles(showTitles: false),
+                            ),
+                            leftTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                reservedSize: 32,
+                              ),
+                            ),
+                          ),
+                          borderData: FlBorderData(
+                            show: true,
+                            border: Border(
+                              bottom: BorderSide(
+                                color: Colors.grey[300]!,
+                                width: 1,
+                              ),
+                              left: BorderSide(
+                                color: Colors.grey[300]!,
+                                width: 1,
+                              ),
+                            ),
+                          ),
+                          minX: 0,
+                          maxX: logs.length > 1
+                              ? (logs.length - 1).toDouble()
+                              : 1,
+                          minY: 0,
+                          maxY: maiorCargaEncontrada > 0
+                              ? (maiorCargaEncontrada + 10)
+                              : 50,
+                          lineBarsData: [
+                            LineChartBarData(
+                              spots: pontosDoGrafico,
+                              isCurved: true,
+                              color: Colors.green[600],
+                              barWidth: 3,
+                              isStrokeCapRound: true,
+                              dotData: const FlDotData(show: true),
+                              belowBarData: BarAreaData(
+                                show: true,
+                                color: Colors.green[600]!.withOpacity(0.15),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: logsExibicaoTexto.length,
+                      itemBuilder: (context, idx) {
+                        var logData =
+                            logsExibicaoTexto[idx].data()
+                                as Map<String, dynamic>;
+                        String cargaReg = logData['carga'] ?? '---';
+
+                        String dataFormatada = 'Recente';
+                        if (logData['dataAnotacao'] != null) {
+                          var dataTime = (logData['dataAnotacao'] as Timestamp)
+                              .toDate();
+                          dataFormatada =
+                              '${dataTime.day.toString().padLeft(2, '0')}/${dataTime.month.toString().padLeft(2, '0')} às ${dataTime.hour.toString().padLeft(2, '0')}:${dataTime.minute.toString().padLeft(2, '0')}';
+                        }
+
+                        return ListTile(
+                          dense: true,
+                          leading: const Icon(
+                            Icons.fitness_center,
+                            size: 16,
+                            color: Colors.black87,
+                          ),
+                          title: Text(
+                            cargaReg,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          subtitle: Text(
+                            dataFormatada,
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fechar', style: TextStyle(color: Colors.black)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _limparFichaCompleta() async {
     if (_alunoSelecionadoId == null) return;
     final snapshot = await FirebaseFirestore.instance
@@ -1364,58 +1577,7 @@ class _HomeScreenState extends State<HomeScreen> {
     for (var doc in snapshot.docs) {
       await doc.reference.delete();
     }
-  }
-
-  void _matricularNovoAluno() async {
-    if (_novoNomeController.text.isEmpty ||
-        _novoEmailController.text.isEmpty ||
-        _novaSenhaController.text.isEmpty)
-      return;
-    try {
-      await _authService.professorCadastrarAluno(
-        nome: _novoNomeController.text.trim(),
-        email: _novoEmailController.text.trim(),
-        senha: _novaSenhaController.text.trim(),
-      );
-
-      final snap = await FirebaseFirestore.instance
-          .collection('usuarios')
-          .where('email', isEqualTo: _novoEmailController.text.trim())
-          .get();
-      if (snap.docs.isNotEmpty) {
-        await snap.docs.first.reference.update({
-          'cargo': 'aluno',
-          'statusPagamento': 'Pendente',
-          'diaVencimento': 10,
-          'plano': 'Mensal',
-          'valorMensalidade': 80.0,
-          'celular': _novoCelularController.text.trim().isEmpty
-              ? '---'
-              : _novoCelularController.text.trim(),
-          'fotoBase64':
-              _fotoBase64NovaMatricula ??
-              '---', // Gravando a imagem stringizada
-        });
-      }
-
-      _novoNomeController.clear();
-      _novoEmailController.clear();
-      _novaSenhaController.clear();
-      _novoCelularController.clear();
-      setState(() {
-        _fotoBase64NovaMatricula = null;
-      });
-
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Aluno matriculado com sucesso! 🚀'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      print(e);
-    }
+    setState(() {});
   }
 
   void _removerExercicioDoCardapio(String docId) async {
@@ -1760,41 +1922,38 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.all(12.0),
                 child: Column(
                   children: [
-                    // REQUADRO DA CÂMERA NA NOVA MATRÍCULA
-                    StatefulBuilder(
-                      builder: (context, setMatriculaState) => Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _fotoBase64NovaMatricula != null
-                              ? CircleAvatar(
-                                  radius: 36,
-                                  backgroundImage: MemoryImage(
-                                    base64Decode(_fotoBase64NovaMatricula!),
-                                  ),
-                                )
-                              : const CircleAvatar(
-                                  radius: 36,
-                                  backgroundColor: Colors.black12,
-                                  child: Icon(
-                                    Icons.camera_enhance,
-                                    color: Colors.black38,
-                                  ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _fotoBase64NovaMatricula != null
+                            ? CircleAvatar(
+                                radius: 36,
+                                backgroundImage: MemoryImage(
+                                  base64Decode(_fotoBase64NovaMatricula!),
                                 ),
-                          const SizedBox(width: 14),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.grey[800],
-                              foregroundColor: Colors.amber,
-                            ),
-                            icon: const Icon(Icons.camera_alt),
-                            label: const Text('Tirar Foto Agora'),
-                            onPressed: () async {
-                              await _tirarFotoNaHora(false);
-                              setMatriculaState(() {});
-                            },
+                              )
+                            : const CircleAvatar(
+                                radius: 36,
+                                backgroundColor: Colors.black12,
+                                child: Icon(
+                                  Icons.camera_enhance,
+                                  color: Colors.black38,
+                                ),
+                              ),
+                        const SizedBox(width: 14),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey[800],
+                            foregroundColor: Colors.amber,
                           ),
-                        ],
-                      ),
+                          icon: const Icon(Icons.camera_alt),
+                          label: const Text('Tirar Foto Agora'),
+                          onPressed: () async {
+                            await _tirarFotoNaHora(false);
+                            setState(() {});
+                          },
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     TextField(
@@ -1900,7 +2059,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 return Card(
                   color: selecionado ? Colors.amber[100] : Colors.white,
                   child: ListTile(
-                    // EXIBIÇÃO DA FOTO EM MEMÓRIA (Se houver texto base64, decodifica em foto, se não usa a inicial)
                     leading:
                         fotoSalvaMemory != '---' && fotoSalvaMemory.isNotEmpty
                         ? CircleAvatar(
@@ -1976,13 +2134,55 @@ class _HomeScreenState extends State<HomeScreen> {
 
         if (_alunoSelecionadoId != null) ...[
           Divider(color: Colors.grey[400]),
-          Text(
-            'Vinculando Exercício para: $_alunoSelecionadoNome',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.blueGrey,
-              fontSize: 16,
-            ),
+
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('exercicios')
+                .snapshots(),
+            builder: (context, snapGlobalEx) {
+              List<String> exerciciosTexto = [];
+              if (snapGlobalEx.hasData) {
+                exerciciosTexto = snapGlobalEx.data!.docs
+                    .map((e) => (e.data() as Map)['nome'].toString())
+                    .toList();
+              }
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Treino de: $_alunoSelecionadoNome',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blueGrey,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purple[700],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                    ),
+                    icon: const Icon(Icons.auto_awesome, size: 16),
+                    label: const Text(
+                      'Copiloto IA ✨',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    onPressed: () => _abrirPopupCopilotoIA(exerciciosTexto),
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 8),
 
@@ -2282,8 +2482,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ================== CONSTRUTOR DE INTERFACE PRINCIPAL (BUILD) ==================
-
   @override
   Widget build(BuildContext context) {
     if (_carregandoPerfil) {
@@ -2388,9 +2586,7 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              _eProfessor
-                  ? 'Ficha Ativa de $_alunoSelecionadoNome:'
-                  : 'Escolha a Série de Hoje:',
+              _eProfessor ? 'Ficha Ativa:' : 'Escolha a Série de Hoje:',
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
             ),
             if (_eProfessor)
@@ -2508,7 +2704,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                         ),
-
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -2524,7 +2719,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                     nomeDoExercicioItem,
                                   ),
                             ),
-
                             if (_eProfessor) ...[
                               IconButton(
                                 icon: const Icon(
