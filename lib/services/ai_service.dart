@@ -4,12 +4,12 @@ import 'package:http/http.dart' as http;
 class AIService {
   // ATENÇÃO: Substitua 'SUA_CHAVE_AIZA_AQUI' pela chave que começa com AIza
   // que você copiou do console do Google Cloud (aquela obtida em 7_12.jpg).
-  final String _apiKey =
-      'AQ.Ab8RN6LdNCvzQEinjHXqhuiBPMs9fyO198x6iHrIawP0glwIEw';
+  final String _apiKey = 'SUA_CHAVE_AIZA_AQUI';
 
   Future<String> _executarChamadaVertex(String prompt) async {
     // Esta URL utiliza o endpoint do Google Generative Language,
     // que é o formato correto para autenticação via Chave de API (AIza).
+    // Substitua a variável 'url' por esta:
     final url = Uri.parse(
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$_apiKey',
     );
