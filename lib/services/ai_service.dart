@@ -2,21 +2,27 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class AIService {
-  // Sua chave AQ. validada e vinculada à Gemini API
+  // Sua chave estável e vinculada do console
   final String _apiKey =
       'AQ.Ab8RN6LdNCvzQEinjHXqhuiBPMs9fyO198x6iHrlawP0glwIEw';
 
+  // ID numérico do seu projeto onde a Vertex AI e a conta de serviço estão operando
+  final String _projectIdNum = '1054648561946';
+
   Future<String> _executarChamadaVertex(String prompt) async {
-    // Endpoint público da Generative Language API, totalmente compatível
-    // com a permissão da Gemini API que você ativou no painel.
+    // Rota da Vertex AI (us-central1), que é o escopo nativo da sua chave AQ.
     final url = Uri.parse(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$_apiKey',
+      'https://us-central1-aiplatform.googleapis.com/v1/projects/$_projectIdNum/locations/us-central1/publishers/google/models/gemini-1.5-flash:generateContent',
     );
 
     try {
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          // Passamos a chave vinculada no cabeçalho de autorização de API do Google
+          'Authorization': 'Bearer $_apiKey',
+        },
         body: jsonEncode({
           'contents': [
             {
@@ -33,7 +39,8 @@ class AIService {
         final data = jsonDecode(response.body);
         return data['candidates'][0]['content']['parts'][0]['text'];
       } else {
-        return "Erro na API (${response.statusCode}): ${response.body}";
+        // Se houver recusa, o corpo completo do erro vai aparecer direto na caixa de texto do App
+        return "Erro de escopo Vertex (${response.statusCode}): ${response.body}";
       }
     } catch (e) {
       return "Erro de conexão: $e";
