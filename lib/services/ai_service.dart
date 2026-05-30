@@ -1,31 +1,52 @@
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class AIService {
   // Sua chave AQ. definitiva obtida no console
   final String _apiKey =
       'AQ.Ab8RN6LdNCvzQEinjHXqhuiBPMs9fyO198x6iHrlawP0glwIEw';
 
-  // Instancia o modelo oficial usando o SDK do Google
-  GenerativeModel _obterModelo() {
-    return GenerativeModel(model: 'gemini-1.5-flash', apiKey: _apiKey);
-  }
+  // ID numérico do seu projeto Google Cloud (1054648561946)
+  final String _projectIdNum = '1054648561946';
 
   Future<String> _executarChamadaVertex(String prompt) async {
+    // Rota híbrida da Vertex AI que aceita chaves corporativas vinculadas via cabeçalho customizado
+    final url = Uri.parse(
+      'https://us-central1-aiplatform.googleapis.com/v1/projects/$_projectIdNum/locations/us-central1/publishers/google/models/gemini-1.5-flash:generateContent',
+    );
+
     try {
-      final model = _obterModelo();
-      final content = [Content.text(prompt)];
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          // O SEGREDO: Usamos o cabeçalho específico do Google que valida chaves do tipo AQ.
+          // sem disparar o bloqueio de falta de token OAuth2
+          'x-goog-api-key': _apiKey,
+        },
+        body: jsonEncode({
+          'contents': [
+            {
+              'role': 'user',
+              'parts': [
+                {'text': prompt},
+              ],
+            },
+          ],
+          // Configuração de segurança padrão recomendada para chamadas diretas
+          'generationConfig': {'temperature': 0.7, 'maxOutputTokens': 1024},
+        }),
+      );
 
-      // O próprio SDK se encarrega de empacotar a chave AQ. no formato aceito pelo Google
-      final response = await model.generateContent(content);
-
-      if (response.text != null) {
-        return response.text!;
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['candidates'][0]['content']['parts'][0]['text'];
       } else {
-        return "A IA não retornou nenhuma resposta para este prompt.";
+        // Se houver qualquer detalhe, o erro completo vai aparecer na tela para sabermos o próximo passo
+        return "Erro de Resposta (${response.statusCode}): ${response.body}";
       }
     } catch (e) {
-      // Caso o Google Cloud aponte alguma falta de permissão interna, o erro sairá limpo aqui
-      return "Erro na execução do Gemini: $e";
+      return "Erro de conexão: $e";
     }
   }
 
