@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class AIService {
-  // Sua chave de API real e atualizada do Google AI Studio
+  // Sua chave de API real do Google AI Studio
   final String _apiKey =
       'AQ.Ab8RN6KsoK9aMys2oVOZCZrgLsyvyjv4NiOsCaEtqhtScm0Xkw';
 
@@ -42,7 +42,7 @@ class AIService {
     ''';
 
     try {
-      // Endpoint corrigido para a nova arquitetura que aceita chaves AQ.
+      // URL CORRIGIDA: Forçando a rota v1beta exigida para chaves modernas do tipo AQ.
       final url = Uri.parse(
         'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$_apiKey',
       );
@@ -89,7 +89,7 @@ class AIService {
     O histórico recente de cargas anotadas por ele, da mais antiga para a mais recente, é: ${historicoCargas.join(' -> ')}.
     
     Analise brevemente esse comportamento:
-    1. Se o peso está estagnado (igual) há mais de 3 anotações, sugira de forma motivadora que ele tente subir de 1kg a 2kg para quebrar o platô e gerar novos instruções.
+    1. Se o peso está estagnado (igual) há mais de 3 anotações, sugira de forma motivadora que ele tente subir de 1kg a 2kg para quebrar o platô e gerar novos estímulos.
     2. Se o peso vem subindo, dê os parabéns pelo foco e pela progressão de força.
     3. Se houver apenas 1 ou 2 anotações, dê uma dica geral de execução ou incentive-o a continuar registrando os pesos.
     
@@ -97,6 +97,7 @@ class AIService {
     ''';
 
     try {
+      // URL CORRIGIDA: Forçando a rota v1beta exigida para chaves modernas do tipo AQ.
       final url = Uri.parse(
         'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$_apiKey',
       );
