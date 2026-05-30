@@ -16,8 +16,19 @@ class AIService {
       return "Erro: Chave de API do Gemini não configurada no ai_service.dart.";
     }
 
+    // PROTEÇÃO EXTRA: Se a biblioteca do Firebase vier vazia no teste, usamos exercícios padrão para não travar a IA
+    List<String> listaValida = exerciciosDisponiveis.isEmpty
+        ? [
+            'Supino Reto',
+            'Agachamento Livre',
+            'Leg Press',
+            'Puxada Frente',
+            'Rosca Direta',
+            'Tríceps Corda',
+          ]
+        : exerciciosDisponiveis;
+
     try {
-      // Mudança estratégica: Usando o construtor explicitamente tunado para evitar caminhos beta no navegador
       final model = GenerativeModel(
         model: 'gemini-1.5-flash',
         apiKey: _apiKey,
@@ -31,10 +42,10 @@ class AIService {
       
       Objetivo do Aluno: $objetivo
       Nível do Aluno: $nivel
-      Lista de exercícios cadastrados na biblioteca da academia: ${exerciciosDisponiveis.join(', ')}
+      Lista de exercícios cadastrados na biblioteca da academia: ${listaValida.join(', ')}
       
       Selecione de 4 a 6 exercícios dessa lista que melhor se encaixam no objetivo e nível informados. 
-      Retorne uma resposta corta, direta e formatada em tópicos, dizendo o nome do exercício e sugerindo uma quantidade de séries e repetições (ex: 4x10 ou 3x12) ideal para o caso.
+      Retorne uma resposta curta, direta e formatada em tópicos, dizendo o nome do exercício e sugerindo uma quantidade de séries e repetições (ex: 4x10 ou 3x12) ideal para o caso.
       Seja motivador e direto ao ponto, sem introduções longas.
       ''';
 
@@ -42,7 +53,6 @@ class AIService {
       final response = await model.generateContent(content);
       return response.text ?? "Não foi possível gerar uma sugestão no momento.";
     } catch (e) {
-      // Plano de contingência caso o SDK da Web insista no bug da v1beta: fazemos o bypass direto por HTTP puro
       return "Erro ao conectar com a IA: $e. Recomenda-se recarregar a página com Ctrl+F5.";
     }
   }
