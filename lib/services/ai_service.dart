@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class AIService {
-  // Sua nova chave de API gerada
+  // Sua chave de API atualizada que começa com AQ.
   final String _apiKey =
       'AQ.Ab8RN6Johx-1z38kq_Xkqp7W7n6DWIcRzVyZSase85QjWtt_Rg';
 
@@ -36,26 +36,24 @@ class AIService {
     Nível do Aluno: $nivel
     Lista de exercícios cadastrados na biblioteca da academia: ${listaValida.join(', ')}
     
-    Selecione de 4 a 6 exercícios dessa lista que melhor se encaixam do objetivo e nível informados. 
+    Selecione de 4 a 6 exercícios dessa lista que melhor se encaixam no objetivo e nível informados. 
     Retorne uma resposta curta, direta e formatada em tópicos, dizendo o nome do exercício e sugerindo uma quantidade de séries e repetições (ex: 4x10 ou 3x12) ideal para o caso.
     Seja motivador e direto ao ponto, sem introduções longas.
     ''';
 
     try {
-      // Usando o proxy público para quebrar o bloqueio de CORS do navegador com chaves AQ.
+      // Endpoint estável regional do Google Vertex AI que aceita chaves AQ de forma direta por HTTP
       final url = Uri.parse(
-        'https://cors-anywhere.herokuapp.com/https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$_apiKey',
+        'https://us-central1-aiplatform.googleapis.com/v1/projects/aplicativo-andsport/locations/us-central1/publishers/google/models/gemini-1.5-flash:generateContent?key=$_apiKey',
       );
 
       final response = await http.post(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-        },
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'contents': [
             {
+              'role': 'user',
               'parts': [
                 {'text': prompt},
               ],
@@ -69,10 +67,10 @@ class AIService {
         return jsonResponse['candidates'][0]['content']['parts'][0]['text'] ??
             "Não foi possível gerar uma sugestão.";
       } else {
-        return "Erro na API do Google (${response.statusCode}): ${response.body}";
+        return "Erro na API do Google Cloud (${response.statusCode}): ${response.body}";
       }
     } catch (e) {
-      return "Erro ao conectar com a IA: $e. Tente novamente.";
+      return "Erro ao conectar com a IA: $e";
     }
   }
 
@@ -101,18 +99,16 @@ class AIService {
 
     try {
       final url = Uri.parse(
-        'https://cors-anywhere.herokuapp.com/https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$_apiKey',
+        'https://us-central1-aiplatform.googleapis.com/v1/projects/aplicativo-andsport/locations/us-central1/publishers/google/models/gemini-1.5-flash:generateContent?key=$_apiKey',
       );
 
       final response = await http.post(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-        },
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'contents': [
             {
+              'role': 'user',
               'parts': [
                 {'text': prompt},
               ],
