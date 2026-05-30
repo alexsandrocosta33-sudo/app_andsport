@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class AIService {
-  // Sua chave de API real do Google AI Studio mantida com segurança
+  // Sua chave de API real do Google AI Studio
   final String _apiKey =
       'AQ.Ab8RN6KsoK9aMys2oVOZCZrgLsyvyjv4NiOsCaEtqhtScm0Xkw';
 
@@ -42,18 +42,17 @@ class AIService {
     ''';
 
     try {
+      // URL AVALIADA: Rota pública direta sem as travas de escopo de projeto para evitar o Failed to fetch
       final url = Uri.parse(
-        'https://firebasevertexai.googleapis.com/v1beta/projects/aplicativo-andsport/locations/global/models/gemini-1.5-flash:generateContent?key=$_apiKey',
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$_apiKey',
       );
 
-      // JSON reestruturado especificamente para a API do Firebase Vertex AI
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'contents': [
             {
-              'role': 'user',
               'parts': [
                 {'text': prompt},
               ],
@@ -67,10 +66,10 @@ class AIService {
         return jsonResponse['candidates'][0]['content']['parts'][0]['text'] ??
             "Não foi possível gerar uma sugestão.";
       } else {
-        return "Erro na API do Firebase (${response.statusCode}): ${response.body}";
+        return "Erro na API do Google (${response.statusCode}): ${response.body}";
       }
     } catch (e) {
-      return "Erro ao conectar com a IA: $e";
+      return "Erro ao conectar com a IA: $e. Tente dar Ctrl+F5.";
     }
   }
 
@@ -99,7 +98,7 @@ class AIService {
 
     try {
       final url = Uri.parse(
-        'https://firebasevertexai.googleapis.com/v1beta/projects/aplicativo-andsport/locations/global/models/gemini-1.5-flash:generateContent?key=$_apiKey',
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$_apiKey',
       );
 
       final response = await http.post(
@@ -108,7 +107,6 @@ class AIService {
         body: jsonEncode({
           'contents': [
             {
-              'role': 'user',
               'parts': [
                 {'text': prompt},
               ],
