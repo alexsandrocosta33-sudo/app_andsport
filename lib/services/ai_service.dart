@@ -17,7 +17,10 @@ class AIService {
     }
 
     try {
-      final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: _apiKey);
+      final model = GenerativeModel(
+        model: 'models/gemini-1.5-flash',
+        apiKey: _apiKey,
+      );
 
       final prompt =
           '''
