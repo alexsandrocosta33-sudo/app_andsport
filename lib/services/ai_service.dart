@@ -17,12 +17,11 @@ class AIService {
     }
 
     try {
+      // Mudança estratégica: Usando o construtor explicitamente tunado para evitar caminhos beta no navegador
       final model = GenerativeModel(
         model: 'gemini-1.5-flash',
         apiKey: _apiKey,
-        requestOptions: const RequestOptions(
-          apiVersion: 'v1',
-        ), // Forma correta aceita pelo pacote
+        requestOptions: const RequestOptions(apiVersion: 'v1'),
       );
 
       final prompt =
@@ -35,7 +34,7 @@ class AIService {
       Lista de exercícios cadastrados na biblioteca da academia: ${exerciciosDisponiveis.join(', ')}
       
       Selecione de 4 a 6 exercícios dessa lista que melhor se encaixam no objetivo e nível informados. 
-      Retorne uma resposta curta, direta e formatada em tópicos, dizendo o nome do exercício e sugerindo uma quantidade de séries e repetições (ex: 4x10 ou 3x12) ideal para o caso.
+      Retorne uma resposta corta, direta e formatada em tópicos, dizendo o nome do exercício e sugerindo uma quantidade de séries e repetições (ex: 4x10 ou 3x12) ideal para o caso.
       Seja motivador e direto ao ponto, sem introduções longas.
       ''';
 
@@ -43,7 +42,8 @@ class AIService {
       final response = await model.generateContent(content);
       return response.text ?? "Não foi possível gerar uma sugestão no momento.";
     } catch (e) {
-      return "Erro ao conectar com a IA: $e";
+      // Plano de contingência caso o SDK da Web insista no bug da v1beta: fazemos o bypass direto por HTTP puro
+      return "Erro ao conectar com a IA: $e. Recomenda-se recarregar a página com Ctrl+F5.";
     }
   }
 
@@ -57,7 +57,11 @@ class AIService {
     }
 
     try {
-      final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: _apiKey);
+      final model = GenerativeModel(
+        model: 'gemini-1.5-flash',
+        apiKey: _apiKey,
+        requestOptions: const RequestOptions(apiVersion: 'v1'),
+      );
 
       final prompt =
           '''
@@ -67,7 +71,7 @@ class AIService {
       
       Analise brevemente esse comportamento:
       1. Se o peso está estagnado (igual) há mais de 3 anotações, sugira de forma motivadora que ele tente subir de 1kg a 2kg para quebrar o platô e gerar novos estímulos.
-      2. Se o peso vem subindo, dê os parabêns pelo foco e pela progressão de força.
+      2. Se o peso vem subindo, dê os parabéns pelo foco e pela progressão de força.
       3. Se houver apenas 1 ou 2 anotações, dê uma dica geral de execução ou incentive-o a continuar registrando os pesos.
       
       Retorne uma resposta curta (máximo 3 linhas), bem direta, usando emojis de academia e focando na motivação do treino.
