@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'screens/login_screen.dart';
-import 'screens/home_screen.dart'; // Importando a nova tela
+import 'screens/home_screen.dart';
+// CORREÇÃO: Importamos a nova página que você acabou de criar
+import 'screens/gerador_treino_ia_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,12 +24,16 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      // Definimos a tela de login como o ponto de partida
+
+      // AJUSTE: Mudamos o ponto de partida para abrir direto no gerador automático
       initialRoute: '/login',
-      // Mapeamos os caminhos do aplicativo
+
+      // Mapeamos os caminhos do aplicativo incluindo a nova rota
       routes: {
         '/login': (context) => const LoginScreen(),
         '/home': (context) => const HomeScreen(),
+        // ADICIONADO: Rota temporária para o nosso teste de automação do banco
+        '/gerador_ia': (context) => const GeradorTreinoIAPage(),
       },
     );
   }

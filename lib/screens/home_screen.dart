@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
@@ -379,21 +380,41 @@ class _HomeScreenState extends State<HomeScreen> {
         _profSenhaController.text.isEmpty)
       return;
 
+    if (_profSenhaController.text.trim().length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'A senha do professor deve conter pelo menos 6 caracteres! ❌',
+          ),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
     try {
-      await _authService.professorCadastrarAluno(
-        nome: _profNomeController.text.trim(),
-        email: _profEmailController.text.trim(),
-        senha: _profSenhaController.text.trim(),
+      FirebaseApp tempApp = await Firebase.initializeApp(
+        name: 'TemporaryProfApp',
+        options: Firebase.app().options,
       );
 
-      final snap = await FirebaseFirestore.instance
-          .collection('usuarios')
-          .where('email', isEqualTo: _profEmailController.text.trim())
-          .get();
+      FirebaseAuth tempAuth = FirebaseAuth.instanceFor(app: tempApp);
 
-      if (snap.docs.isNotEmpty) {
-        await snap.docs.first.reference.update({'cargo': 'professor'});
-      }
+      UserCredential userCred = await tempAuth.createUserWithEmailAndPassword(
+        email: _profEmailController.text.trim(),
+        password: _profSenhaController.text.trim(),
+      );
+
+      String novoUid = userCred.user!.uid;
+
+      await FirebaseFirestore.instance.collection('usuarios').doc(novoUid).set({
+        'nome': _profNomeController.text.trim(),
+        'email': _profEmailController.text.trim(),
+        'cargo': 'professor',
+        'criadoEm': FieldValue.serverTimestamp(),
+      });
+
+      await tempApp.delete();
 
       _profNomeController.clear();
       _profEmailController.clear();
@@ -402,9 +423,21 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Professor credenciado com sucesso! 🛡️'),
+          content: Text(
+            'Professor credenciado com sucesso! O Admin permanece ativo. 🛡️',
+          ),
           backgroundColor: Colors.blue,
         ),
+      );
+    } on FirebaseAuthException catch (e) {
+      String mensagem = 'Erro ao cadastrar professor.';
+      if (e.code == 'weak-password') {
+        mensagem = 'A senha digitada é muito fraca. Mínimo de 6 caracteres.';
+      } else if (e.code == 'email-already-in-use') {
+        mensagem = 'Este e-mail já está em uso por outro usuário.';
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mensagem), backgroundColor: Colors.redAccent),
       );
     } catch (e) {
       print("Erro ao cadastrar professor: $e");
@@ -541,7 +574,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Dados do aluno atualizados! 📝'),
+                  content: Text('Dados do aluno updated! 📝'),
                   backgroundColor: Colors.green,
                 ),
               );
@@ -870,7 +903,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Exercício salvo na biblioteca! ✔'),
+        content: Text('Exercício saved na biblioteca! ✔'),
         backgroundColor: Colors.green,
       ),
     );
@@ -990,30 +1023,53 @@ class _HomeScreenState extends State<HomeScreen> {
         _novoEmailController.text.isEmpty ||
         _novaSenhaController.text.isEmpty)
       return;
+
+    if (_novaSenhaController.text.trim().length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'A senha do aluno deve conter pelo menos 6 caracteres! ❌',
+          ),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
     try {
-      await _authService.professorCadastrarAluno(
-        nome: _novoNomeController.text.trim(),
-        email: _novoEmailController.text.trim(),
-        senha: _novaSenhaController.text.trim(),
+      FirebaseApp tempApp = await Firebase.initializeApp(
+        name: 'TemporaryStudentApp',
+        options: Firebase.app().options,
       );
 
-      final snap = await FirebaseFirestore.instance
+      FirebaseAuth tempAuth = FirebaseAuth.instanceFor(app: tempApp);
+
+      UserCredential userCred = await tempAuth.createUserWithEmailAndPassword(
+        email: _novoEmailController.text.trim(),
+        password: _novaSenhaController.text.trim(),
+      );
+
+      String novoUidDoAluno = userCred.user!.uid;
+
+      await FirebaseFirestore.instance
           .collection('usuarios')
-          .where('email', isEqualTo: _novoEmailController.text.trim())
-          .get();
-      if (snap.docs.isNotEmpty) {
-        await snap.docs.first.reference.update({
-          'cargo': 'aluno',
-          'statusPagamento': 'Pendente',
-          'diaVencimento': 10,
-          'plano': 'Mensal',
-          'valorMensalidade': 80.0,
-          'celular': _novoCelularController.text.trim().isEmpty
-              ? '---'
-              : _novoCelularController.text.trim(),
-          'fotoBase64': _fotoBase64NovaMatricula ?? '---',
-        });
-      }
+          .doc(novoUidDoAluno)
+          .set({
+            'nome': _novoNomeController.text.trim(),
+            'email': _novoEmailController.text.trim(),
+            'cargo': 'aluno',
+            'statusPagamento': 'Pendente',
+            'diaVencimento': 10,
+            'plano': 'Mensal',
+            'valorMensalidade': 80.0,
+            'celular': _novoCelularController.text.trim().isEmpty
+                ? '---'
+                : _novoCelularController.text.trim(),
+            'fotoBase64': _fotoBase64NovaMatricula ?? '---',
+            'criadoEm': FieldValue.serverTimestamp(),
+          });
+
+      await tempApp.delete();
 
       _novoNomeController.clear();
       _novoEmailController.clear();
@@ -1023,15 +1079,28 @@ class _HomeScreenState extends State<HomeScreen> {
         _fotoBase64NovaMatricula = null;
       });
 
+      if (!mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Aluno matriculado com sucesso! 🚀'),
+          content: Text(
+            'Aluno matriculado com sucesso! Painel do professor permanece intacto. 🚀',
+          ),
           backgroundColor: Colors.green,
         ),
       );
+    } on FirebaseAuthException catch (e) {
+      String msg = 'Erro no cadastro do aluno.';
+      if (e.code == 'weak-password') {
+        msg = 'Senha fraca! Escolha uma senha com 6 ou mais dígitos.';
+      } else if (e.code == 'email-already-in-use') {
+        msg = 'O e-mail informado já está em uso.';
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: Colors.redAccent),
+      );
     } catch (e) {
-      print(e);
+      print("Erro ao cadastrar aluno: $e");
     }
   }
 
@@ -1040,6 +1109,7 @@ class _HomeScreenState extends State<HomeScreen> {
     String nivelSelecionado = 'Intermediário';
     String resultadoIA = '';
     bool processandoIA = false;
+    bool gravandoNoBanco = false;
 
     showDialog(
       context: context,
@@ -1107,15 +1177,26 @@ class _HomeScreenState extends State<HomeScreen> {
                     foregroundColor: Colors.black,
                     minimumSize: const Size.fromHeight(40),
                   ),
-                  onPressed: processandoIA
+                  onPressed: processandoIA || gravandoNoBanco
                       ? null
                       : () async {
                           setPopupState(() => processandoIA = true);
+
+                          String diretrizMetodologica =
+                              "DIRETRIZ OBRIGATÓRIA DA ACADEMIA:\n"
+                              "- Se gerar treinos para a ficha 'A', use APENAS exercícios de Peito e Tríceps.\n"
+                              "- Se gerar treinos para a ficha 'B', use APENAS exercícios de Pernas.\n"
+                              "- Se gerar treinos para a ficha 'C', use APENAS exercícios de Costas e Bíceps.\n"
+                              "- Se gerar treinos para a ficha 'D', use APENAS exercícios de Ombros.\n"
+                              "Distribua os exercícios disponíveis inteligentemente seguindo essa matriz exata.";
+
                           final resposta = await _aiService.gerarSugestaoTreino(
-                            objetivo: objetivoSelecionado,
+                            objetivo:
+                                '$objetivoSelecionado ($diretrizMetodologica. ATENÇÃO: Devolva a resposta estritamente formatada em JSON válido. O formato deve ser uma lista de objetos contendo as chaves: "ficha", "grupo", "exercicio", "series", "carga".)',
                             nivel: nivelSelecionado,
                             exerciciosDisponiveis: bibliotecaExercicios,
                           );
+
                           setPopupState(() {
                             resultadoIA = resposta;
                             processandoIA = false;
@@ -1141,7 +1222,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Divider(),
                   ),
                   const Text(
-                    'Sugestão do Copiloto:',
+                    'Sugestão Estruturada da IA:',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
@@ -1150,20 +1231,114 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 6),
                   Container(
+                    constraints: const BoxConstraints(maxHeight: 150),
+                    width: double.infinity,
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: Colors.amber.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.amber.withOpacity(0.3)),
                     ),
-                    child: Text(
-                      resultadoIA,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        height: 1.4,
-                        color: Colors.black87,
+                    child: SingleChildScrollView(
+                      child: Text(
+                        resultadoIA,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontFamily: 'monospace',
+                          color: Colors.black87,
+                        ),
                       ),
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green[700],
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size.fromHeight(42),
+                    ),
+                    icon: gravandoNoBanco
+                        ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Icon(Icons.playlist_add_check),
+                    label: Text(
+                      gravandoNoBanco
+                          ? 'Gravando na Grade...'
+                          : 'Injetar Exercícios na Ficha do Aluno 🔥',
+                    ),
+                    onPressed: gravandoNoBanco || _alunoSelecionadoId == null
+                        ? null
+                        : () async {
+                            setPopupState(() => gravandoNoBanco = true);
+                            try {
+                              String marcaInicioJson = '```json';
+                              String marcaFimJson = '```';
+                              String limpandoJson = resultadoIA
+                                  .replaceAll(marcaInicioJson, '')
+                                  .replaceAll(marcaFimJson, '')
+                                  .trim();
+                              final List<dynamic> listaExerciciosIA =
+                                  jsonDecode(limpandoJson);
+
+                              for (var exercicioItem in listaExerciciosIA) {
+                                String letraFicha =
+                                    (exercicioItem['ficha'] ??
+                                            _fichaSelecionadaAluno)
+                                        .toString()
+                                        .toUpperCase()
+                                        .trim();
+                                String grupoMusc =
+                                    exercicioItem['grupo'] ?? 'Geral';
+                                String nomeEx =
+                                    exercicioItem['exercicio'] ?? 'Exercício';
+                                String reps = exercicioItem['series'] ?? '4x10';
+                                String peso = exercicioItem['carga'] ?? '---';
+
+                                await _workoutService.salvarTreino(
+                                  alunoId: _alunoSelecionadoId!,
+                                  ficha: letraFicha,
+                                  grupoMuscular:
+                                      grupoMusc, // CORREÇÃO DO ERRO DA VARIÁVEL AQUI
+                                  nomeExercicios: nomeEx,
+                                  seriesRepeticoes: reps,
+                                  carga: peso.contains('kg')
+                                      ? peso
+                                      : '$peso kg',
+                                  videoUrl: '---',
+                                );
+                              }
+
+                              if (!mounted) return;
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Ficha Inteligente de $_alunoSelecionadoNome montada com sucesso! 🏋️‍♂️💪',
+                                  ),
+                                  backgroundColor: Colors.green[800],
+                                ),
+                              );
+                            } catch (erroParsing) {
+                              print(
+                                "Erro ao processar estrutura JSON da IA: $erroParsing",
+                              );
+                              setPopupState(() => gravandoNoBanco = false);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Falha ao processar o formato gerado. Tente consultar novamente.',
+                                  ),
+                                  backgroundColor: Colors.redAccent,
+                                ),
+                              );
+                            }
+                          },
                   ),
                 ],
               ],
@@ -1183,7 +1358,390 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // REPOSICIONADA: Função de exibição de detalhes (Antigo erro resolvido)
+  // Plano de Treino Padrão estruturado de acordo com o padrão exigido na sua academia
+  void _injetarPlanoTreinoPadrao(String nivel) async {
+    if (_alunoSelecionadoId == null) return;
+
+    List<Map<String, String>> planoModelo = [];
+
+    if (nivel == 'Iniciante') {
+      planoModelo = [
+        {
+          'ficha': 'A',
+          'grupo': 'Peito',
+          'exercicio': 'Supino Reto na Máquina',
+          'series': '3x12',
+          'carga': '20 kg',
+        },
+        {
+          'ficha': 'A',
+          'grupo': 'Peito',
+          'exercicio': 'Pec Deck (Voador)',
+          'series': '3x12',
+          'carga': '25 kg',
+        },
+        {
+          'ficha': 'A',
+          'grupo': 'Tríceps',
+          'exercicio': 'Tríceps Pulley',
+          'series': '3x12',
+          'carga': '15 kg',
+        },
+        {
+          'ficha': 'B',
+          'grupo': 'Pernas',
+          'exercicio': 'Leg Press 45º',
+          'series': '3x15',
+          'carga': '60 kg',
+        },
+        {
+          'ficha': 'B',
+          'grupo': 'Pernas',
+          'exercicio': 'Cadeira Extensora',
+          'series': '3x12',
+          'carga': '20 kg',
+        },
+        {
+          'ficha': 'C',
+          'grupo': 'Costas',
+          'exercicio': 'Puxada Aberta no Pulley',
+          'series': '3x12',
+          'carga': '25 kg',
+        },
+        {
+          'ficha': 'C',
+          'grupo': 'Bíceps',
+          'exercicio': 'Rosca Direta com Halteres',
+          'series': '3x12',
+          'carga': '6 kg',
+        },
+      ];
+    } else if (nivel == 'Intermediário') {
+      planoModelo = [
+        {
+          'ficha': 'A',
+          'grupo': 'Peito',
+          'exercicio': 'Supino Reto com Barra',
+          'series': '4x10',
+          'carga': '40 kg',
+        },
+        {
+          'ficha': 'A',
+          'grupo': 'Peito',
+          'exercicio': 'Supino Inclinado com Halteres',
+          'series': '4x10',
+          'carga': '16 kg',
+        },
+        {
+          'ficha': 'A',
+          'grupo': 'Tríceps',
+          'exercicio': 'Tríceps Testa',
+          'series': '4x10',
+          'carga': '10 kg',
+        },
+        {
+          'ficha': 'B',
+          'grupo': 'Pernas',
+          'exercicio': 'Agachamento Livre',
+          'series': '4x10',
+          'carga': '30 kg',
+        },
+        {
+          'ficha': 'B',
+          'grupo': 'Pernas',
+          'exercicio': 'Mesa Flexora',
+          'series': '4x10',
+          'carga': '25 kg',
+        },
+        {
+          'ficha': 'C',
+          'grupo': 'Costas',
+          'exercicio': 'Remada Baixa Sentado',
+          'series': '4x10',
+          'carga': '40 kg',
+        },
+        {
+          'ficha': 'C',
+          'grupo': 'Bíceps',
+          'exercicio': 'Rosca Scott',
+          'series': '4x10',
+          'carga': '12 kg',
+        },
+        {
+          'ficha': 'D',
+          'grupo': 'Ombros',
+          'exercicio': 'Desenvolvimento com Halteres',
+          'series': '4x10',
+          'carga': '12 kg',
+        },
+      ];
+    } else if (nivel == 'Avançado') {
+      planoModelo = [
+        {
+          'ficha': 'A',
+          'grupo': 'Peito',
+          'exercicio': 'Supino Reto no Smith',
+          'series': '4x8',
+          'carga': '60 kg',
+        },
+        {
+          'ficha': 'A',
+          'grupo': 'Peito',
+          'exercicio': 'Crucifixo Inclinado em Banco',
+          'series': '4x10',
+          'carga': '20 kg',
+        },
+        {
+          'ficha': 'A',
+          'grupo': 'Tríceps',
+          'exercicio': 'Tríceps Pulley com Corda',
+          'series': '4x12',
+          'carga': '25 kg',
+        },
+        {
+          'ficha': 'B',
+          'grupo': 'Pernas',
+          'exercicio': 'Agachamento Livre Pesado',
+          'series': '4x8',
+          'carga': '70 kg',
+        },
+        {
+          'ficha': 'B',
+          'grupo': 'Pernas',
+          'exercicio': 'Cadeira Flexora',
+          'series': '4x12',
+          'carga': '40 kg',
+        },
+        {
+          'ficha': 'C',
+          'grupo': 'Costas',
+          'exercicio': 'Remada Curvada com Barra',
+          'series': '4x8',
+          'carga': '50 kg',
+        },
+        {
+          'ficha': 'C',
+          'grupo': 'Bíceps',
+          'exercicio': 'Rosca Direta na Barra W',
+          'series': '4x10',
+          'carga': '20 kg',
+        },
+        {
+          'ficha': 'D',
+          'grupo': 'Ombros',
+          'exercicio': 'Elevação Lateral na Polia',
+          'series': '4x12',
+          'carga': '10 kg',
+        },
+      ];
+    }
+
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) =>
+            const Center(child: CircularProgressIndicator(color: Colors.amber)),
+      );
+
+      for (var ex in planoModelo) {
+        await _workoutService.salvarTreino(
+          alunoId: _alunoSelecionadoId!,
+          ficha: ex['ficha']!,
+          grupoMuscular: ex['grupo']!,
+          nomeExercicios: ex['exercicio']!,
+          seriesRepeticoes: ex['series']!,
+          carga: ex['carga']!,
+          videoUrl: '---',
+        );
+      }
+
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Plano Padrão ($nivel) injetado com sucesso na ficha do aluno! 🏋️‍♂️🔥',
+          ),
+          backgroundColor: Colors.green[800],
+        ),
+      );
+    } catch (e) {
+      Navigator.pop(context);
+      print("Erro ao aplicar plano padrão: $e");
+    }
+  }
+
+  // NOVA FUNÇÃO MULTIMODAL: Abre a câmera, envia a foto do prato ao Gemini e processa macros
+  void _abrirScannerDeRefeicao() {
+    final picker = ImagePicker();
+    bool analisando = false;
+    Map<String, dynamic>? resultadoAnalise;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setPopupState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.restaurant, color: Colors.green),
+              SizedBox(width: 8),
+              Text(
+                'Scanner de Refeição IA',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!analisando && resultadoAnalise == null) ...[
+                const Text(
+                  'Tire uma foto do seu prato para a IA calcular calorias e proteínas automaticamente.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: Colors.blueGrey),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green[700],
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(42),
+                  ),
+                  icon: const Icon(Icons.photo_camera),
+                  label: const Text(
+                    'Bater Foto do Prato',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  onPressed: () async {
+                    final XFile? foto = await picker.pickImage(
+                      source: ImageSource.camera,
+                      imageQuality: 70,
+                    );
+                    if (foto != null) {
+                      setPopupState(() => analisando = true);
+
+                      final bytes = await foto.readAsBytes();
+                      final resultado = await _aiService
+                          .analisarRefeicaoPorFoto(bytes);
+
+                      setPopupState(() {
+                        analisando = false;
+                        resultadoAnalise = resultado;
+                      });
+                    }
+                  },
+                ),
+              ],
+              if (analisando) ...[
+                const SizedBox(height: 12),
+                const CircularProgressIndicator(color: Colors.green),
+                const SizedBox(height: 16),
+                const Text(
+                  'O Gemini está analisando os macros do prato...',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                ),
+              ],
+              if (resultadoAnalise != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.green[200]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '🍽️ ${resultadoAnalise!['descricao']}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 6),
+                        child: Divider(height: 1),
+                      ),
+                      Text(
+                        '🔥 Calorias: ${resultadoAnalise!['calorias']} kcal',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '💪 Proteínas: ${resultadoAnalise!['proteinas']}g',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.amber,
+                    minimumSize: const Size.fromHeight(42),
+                  ),
+                  onPressed: () async {
+                    await FirebaseFirestore.instance
+                        .collection('usuarios')
+                        .doc(_alunoSelecionadoId)
+                        .collection('diario_alimentar')
+                        .add({
+                          'descricao': resultadoAnalise!['descricao'],
+                          'calorias': resultadoAnalise!['calorias'],
+                          'proteinas': resultadoAnalise!['proteinas'],
+                          'dataRegistro': FieldValue.serverTimestamp(),
+                        });
+
+                    if (!mounted) return;
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Refeição salva no seu diário de nutrição! 🍗📊',
+                        ),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  },
+                  child: const Text(
+                    'Confirmar e Salvar no Diário',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'Cancelar',
+                style: TextStyle(color: Colors.black),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _mostrarDetalhesExercicioAluno(Map<String, dynamic> dados) {
     showDialog(
       context: context,
@@ -1253,7 +1811,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // REPOSICIONADA: Função coletora de carga de treino (Antigo erro resolvido)
   void _abrirPopupAnotarCarga(String nomeExercicio) {
     _anotarCargaController.clear();
     showDialog(
@@ -1704,8 +2261,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ================== ABAS DO PROFESSOR CONSTRUÍDAS ==================
-
   Widget _construirAbaTreinos() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1765,7 +2320,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         obscureText: true,
                         style: const TextStyle(color: Colors.white),
                         decoration: const InputDecoration(
-                          labelText: 'Senha Inicial',
+                          labelText: 'Senha Inicial (Mínimo 6 caracteres)',
                           labelStyle: TextStyle(color: Colors.white70),
                           enabledBorder: OutlineInputBorder(
                             borderSide: BorderSide(color: Colors.white30),
@@ -1976,7 +2531,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       controller: _novaSenhaController,
                       obscureText: true,
                       decoration: const InputDecoration(
-                        labelText: 'Senha de Acesso',
+                        labelText: 'Senha de Acesso (Mínimo 6 caracteres)',
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -2146,39 +2701,148 @@ class _HomeScreenState extends State<HomeScreen> {
                     .map((e) => (e.data() as Map)['nome'].toString())
                     .toList();
               }
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      'Treino de: $_alunoSelecionadoNome',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blueGrey,
-                        fontSize: 15,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      WidgetExpandido(
+                        child: Text(
+                          'Treino de: $_alunoSelecionadoNome',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blueGrey,
+                            fontSize: 15,
+                          ),
+                        ),
                       ),
-                    ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.purple[700],
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                        ),
+                        icon: const Icon(Icons.auto_awesome, size: 16),
+                        label: const Text(
+                          'Copiloto IA ✨',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        onPressed: () => _abrirPopupCopilotoIA(exerciciosTexto),
+                      ),
+                    ],
                   ),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.purple[700],
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
+                  const SizedBox(height: 10),
+
+                  // PLANOS DE TREINO PADRÃO COMPACTOS
+                  Card(
+                    color: Colors.blueGrey[50],
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      side: BorderSide(color: Colors.blueGrey[200]!),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(
+                                Icons.copy,
+                                color: Colors.blueGrey,
+                                size: 18,
+                              ),
+                              SizedBox(width: 6),
+                              Text(
+                                'Injetar Modelo de Treino Padrão',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green[600],
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                    ),
+                                  ),
+                                  onPressed: () =>
+                                      _injetarPlanoTreinoPadrao('Iniciante'),
+                                  child: const Text(
+                                    'Iniciante 🟢',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.orange[700],
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                    ),
+                                  ),
+                                  onPressed: () => _injetarPlanoTreinoPadrao(
+                                    'Intermediário',
+                                  ),
+                                  child: const Text(
+                                    'Intermediário 🟡',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red[700],
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                    ),
+                                  ),
+                                  onPressed: () =>
+                                      _injetarPlanoTreinoPadrao('Avançado'),
+                                  child: const Text(
+                                    'Avançado 🔴',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                    icon: const Icon(Icons.auto_awesome, size: 16),
-                    label: const Text(
-                      'Copiloto IA ✨',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    onPressed: () => _abrirPopupCopilotoIA(exerciciosTexto),
                   ),
                 ],
               );
@@ -2240,17 +2904,42 @@ class _HomeScreenState extends State<HomeScreen> {
                         );
                       }
 
+                      // PROTEÇÃO ABSOLUTA DROPDOWN
+                      final chavesValidas = docsEx
+                          .map((de) {
+                            var exData = de.data() as Map<String, dynamic>;
+                            return "${exData['nome'] ?? ''}|||${exData['videoUrl'] ?? '---'}";
+                          })
+                          .toSet()
+                          .toList();
+
+                      if (_exercicioSelecionadoCardapio != null &&
+                          !chavesValidas.contains(
+                            _exercicioSelecionadoCardapio,
+                          )) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          setState(() {
+                            _exercicioSelecionadoCardapio = null;
+                          });
+                        });
+                      }
+
                       return DropdownButtonFormField<String>(
-                        value: _exercicioSelecionadoCardapio,
+                        value:
+                            chavesValidas.contains(
+                              _exercicioSelecionadoCardapio,
+                            )
+                            ? _exercicioSelecionadoCardapio
+                            : null,
                         hint: const Text('2. Escolha o Exercício'),
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(),
                         ),
-                        items: docsEx.map((de) {
-                          var exData = de.data() as Map<String, dynamic>;
+                        items: chavesValidas.map((valorComposto) {
+                          String nomeExibicao = valorComposto.split("|||")[0];
                           return DropdownMenuItem<String>(
-                            value: "${exData['nome']}|||${exData['videoUrl']}",
-                            child: Text(exData['nome'] ?? ''),
+                            value: valorComposto,
+                            child: Text(nomeExibicao),
                           );
                         }).toList(),
                         onChanged: (val) =>
@@ -2552,6 +3241,75 @@ class _HomeScreenState extends State<HomeScreen> {
                       );
                     },
                   ),
+
+                  // CARD DO DIÁRIO ALIMENTAR DO ALUNO
+                  Card(
+                    color: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 2,
+                    child: Padding(
+                      padding: const EdgeInsets.all(14.0),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: Colors.green[100],
+                            radius: 22,
+                            child: Icon(
+                              Icons.restaurant,
+                              color: Colors.green[800],
+                              size: 22,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Diário de Nutrição com IA',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Registre refeições tirando uma foto do prato',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green[700],
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                            ),
+                            icon: const Icon(Icons.camera_alt, size: 16),
+                            label: const Text(
+                              'Escanear',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            onPressed: _abrirScannerDeRefeicao,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
                   _construirListaDeTreinosEfetivos(),
                 ],
               ),
@@ -2579,207 +3337,305 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _construirListaDeTreinosEfetivos() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              _eProfessor ? 'Ficha Ativa:' : 'Escolha a Série de Hoje:',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-            ),
-            if (_eProfessor)
-              IconButton(
-                icon: const Icon(Icons.delete_sweep, color: Colors.red),
-                onPressed: _limparFichaCompleta,
-              ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: ['A', 'B', 'C'].map((letraFicha) {
-            bool estaSelecionada = _fichaSelecionadaAluno == letraFicha;
-            return Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: estaSelecionada
-                        ? Colors.black
-                        : Colors.white,
-                    foregroundColor: estaSelecionada
-                        ? Colors.amber
-                        : Colors.black87,
-                  ),
-                  onPressed: () =>
-                      setState(() => _fichaSelecionadaAluno = letraFicha),
-                  child: Text('TREINO $letraFicha'),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 12),
-        StreamBuilder<QuerySnapshot>(
-          stream: _workoutService.listarTreinosPorFicha(
-            _alunoSelecionadoId!,
-            _fichaSelecionadaAluno,
-          ),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData)
-              return const Center(
-                child: CircularProgressIndicator(color: Colors.amber),
-              );
-            final treinos = snapshot.data?.docs ?? [];
-            if (treinos.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16.0),
-                child: Center(
-                  child: Text('Nenhum exercício cadastrado nesta série.'),
-                ),
-              );
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(_alunoSelecionadoId)
+          .collection('treinos')
+          .snapshots(),
+      builder: (context, snapshotGeralTreinos) {
+        Set<String> letrasFichasExistentes = {
+          'A',
+          'B',
+          'C',
+          _fichaSelecionadaAluno,
+        };
+
+        if (snapshotGeralTreinos.hasData) {
+          for (var doc in snapshotGeralTreinos.data!.docs) {
+            var dados = doc.data() as Map<String, dynamic>;
+            if (dados.containsKey('ficha')) {
+              String letra = dados['ficha'].toString().toUpperCase().trim();
+              if (letra.isNotEmpty) {
+                letrasFichasExistentes.add(letra);
+              }
             }
+          }
+        }
 
-            return Column(
-              children: treinos.map((t) {
-                final dadosTratados = t.data() as Map<String, dynamic>;
-                String nomeDoExercicioItem =
-                    dadosTratados['exercicios'] ?? 'Exercício';
+        List<String> listaFichasOrdenadas = letrasFichasExistentes.toList()
+          ..sort();
 
-                return Card(
-                  color: Colors.white,
-                  margin: const EdgeInsets.symmetric(
-                    vertical: 4,
-                    horizontal: 2,
+        if (!listaFichasOrdenadas.contains(_fichaSelecionadaAluno)) {
+          _fichaSelecionadaAluno = listaFichasOrdenadas.first;
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _eProfessor ? 'Ficha Ativa:' : 'Escolha a Série de Hoje:',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4.0),
-                    child: Row(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(left: 4.0),
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.play_circle_fill,
-                              color: Colors.amber,
-                              size: 36,
-                            ),
-                            onPressed: () =>
-                                _assistirVideo(dadosTratados['videoUrl']),
+                ),
+                if (_eProfessor) ...[
+                  Row(
+                    children: [
+                      TextButton.icon(
+                        icon: const Icon(
+                          Icons.add,
+                          size: 18,
+                          color: Colors.blueAccent,
+                        ),
+                        label: const Text(
+                          'Nova Ficha',
+                          style: TextStyle(
+                            color: Colors.blueAccent,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        Expanded(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () {
-                              if (!_eProfessor)
-                                _mostrarDetalhesExercicioAluno(dadosTratados);
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 8.0,
-                                horizontal: 4.0,
+                        onPressed: () {
+                          int proximoCodigoLetra =
+                              listaFichasOrdenadas.last.codeUnitAt(0) + 1;
+                          String proximaLetra = String.fromCharCode(
+                            proximoCodigoLetra,
+                          );
+
+                          setState(() {
+                            _fichaSelecionadaAluno = proximaLetra;
+                          });
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Ficha $proximaLetra liberada! Agora basta vincular exercícios a ela. 🏋️‍♂️',
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    nomeDoExercicioItem,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
+                              backgroundColor: Colors.blue,
+                            ),
+                          );
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_sweep, color: Colors.red),
+                        onPressed: _limparFichaCompleta,
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: listaFichasOrdenadas.map((letraFicha) {
+                  bool estaSelecionada = _fichaSelecionadaAluno == letraFicha;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: estaSelecionada
+                            ? Colors.black
+                            : Colors.white,
+                        foregroundColor: estaSelecionada
+                            ? Colors.amber
+                            : Colors.black87,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                      ),
+                      onPressed: () =>
+                          setState(() => _fichaSelecionadaAluno = letraFicha),
+                      child: Text('TREINO $letraFicha'),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            StreamBuilder<QuerySnapshot>(
+              stream: _workoutService.listarTreinosPorFicha(
+                _alunoSelecionadoId!,
+                _fichaSelecionadaAluno,
+              ),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData)
+                  return const Center(
+                    child: CircularProgressIndicator(color: Colors.amber),
+                  );
+                final treinos = snapshot.data?.docs ?? [];
+                if (treinos.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16.0),
+                    child: Center(
+                      child: Text('Nenhum exercício cadastrado nesta série.'),
+                    ),
+                  );
+                }
+
+                return Column(
+                  children: treinos.map((t) {
+                    final dadosTratados = t.data() as Map<String, dynamic>;
+                    String nomeDoExercicioItem =
+                        dadosTratados['exercicios'] ?? 'Exercício';
+
+                    return Card(
+                      color: Colors.white,
+                      margin: const EdgeInsets.symmetric(
+                        vertical: 4,
+                        horizontal: 2,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4.0),
+                        child: Row(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(left: 4.0),
+                              child: IconButton(
+                                icon: const Icon(
+                                  Icons.play_circle_fill,
+                                  color: Colors.amber,
+                                  size: 36,
+                                ),
+                                onPressed: () =>
+                                    _assistirVideo(dadosTratados['videoUrl']),
+                              ),
+                            ),
+                            Expanded(
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () {
+                                  if (!_eProfessor)
+                                    _mostrarDetalhesExercicioAluno(
+                                      dadosTratados,
+                                    );
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8.0,
+                                    horizontal: 4.0,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        nomeDoExercicioItem,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${dadosTratados['grupo'] ?? ''} | Reps: ${dadosTratados['series'] ?? ''} | Base: ${dadosTratados['carga'] ?? ''}',
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.history,
+                                    color: Colors.blueGrey,
+                                    size: 22,
+                                  ),
+                                  tooltip: 'Ver Evolução de Força',
+                                  onPressed: () =>
+                                      _abrirHistoricoDeCargasDoExercicio(
+                                        nomeDoExercicioItem,
+                                      ),
+                                ),
+                                if (_eProfessor) ...[
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.edit,
+                                      color: Colors.orange,
+                                      size: 22,
+                                    ),
+                                    onPressed: () =>
+                                        _abrirConfiguracaoExercicio(
+                                          dadosTratados['grupo'] ?? '',
+                                          nomeDoExercicioItem,
+                                          treinoId: t.id,
+                                          seriesAtual: dadosTratados['series'],
+                                          cargaAtual: dadosTratados['carga'],
+                                          videoUrlAtual:
+                                              dadosTratados['videoUrl'],
+                                        ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete,
+                                      color: Colors.red,
+                                      size: 22,
+                                    ),
+                                    onPressed: () =>
+                                        _workoutService.excluirTreino(
+                                          _alunoSelecionadoId!,
+                                          t.id,
+                                        ),
+                                  ),
+                                ] else ...[
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.scale,
+                                      color: Colors.green,
+                                      size: 22,
+                                    ),
+                                    tooltip: 'Anotar Peso de Hoje',
+                                    onPressed: () => _abrirPopupAnotarCarga(
+                                      nomeDoExercicioItem,
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${dadosTratados['grupo'] ?? ''} | Reps: ${dadosTratados['series'] ?? ''} | Base: ${dadosTratados['carga'] ?? ''}',
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontSize: 13,
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.play_circle_outline,
+                                      color: Colors.amber,
+                                      size: 24,
+                                    ),
+                                    tooltip: 'Iniciar Descanso',
+                                    onPressed: () => _iniciarCronometroDescanso(
+                                      nomeDoExercicioItem,
                                     ),
                                   ),
                                 ],
-                              ),
+                              ],
                             ),
-                          ),
-                        ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(
-                                Icons.history,
-                                color: Colors.blueGrey,
-                                size: 22,
-                              ),
-                              tooltip: 'Ver Evolução de Força',
-                              onPressed: () =>
-                                  _abrirHistoricoDeCargasDoExercicio(
-                                    nomeDoExercicioItem,
-                                  ),
-                            ),
-                            if (_eProfessor) ...[
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.edit,
-                                  color: Colors.orange,
-                                  size: 22,
-                                ),
-                                onPressed: () => _abrirConfiguracaoExercicio(
-                                  dadosTratados['grupo'] ?? '',
-                                  nomeDoExercicioItem,
-                                  treinoId: t.id,
-                                  seriesAtual: dadosTratados['series'],
-                                  cargaAtual: dadosTratados['carga'],
-                                  videoUrlAtual: dadosTratados['videoUrl'],
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.delete,
-                                  color: Colors.red,
-                                  size: 22,
-                                ),
-                                onPressed: () => _workoutService.excluirTreino(
-                                  _alunoSelecionadoId!,
-                                  t.id,
-                                ),
-                              ),
-                            ] else ...[
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.scale,
-                                  color: Colors.green,
-                                  size: 22,
-                                ),
-                                tooltip: 'Anotar Peso de Hoje',
-                                onPressed: () =>
-                                    _abrirPopupAnotarCarga(nomeDoExercicioItem),
-                              ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.play_circle_outline,
-                                  color: Colors.amber,
-                                  size: 24,
-                                ),
-                                tooltip: 'Iniciar Descanso',
-                                onPressed: () => _iniciarCronometroDescanso(
-                                  nomeDoExercicioItem,
-                                ),
-                              ),
-                            ],
                           ],
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  }).toList(),
                 );
-              }).toList(),
-            );
-          },
-        ),
-      ],
+              },
+            ),
+          ],
+        );
+      },
     );
+  }
+}
+
+class WidgetExpandido extends StatelessWidget {
+  final Widget child;
+  const WidgetExpandido({super.key, required this.child});
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(child: child);
   }
 }
