@@ -3,8 +3,8 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 class AIService {
-  // NOTA: Se a sua chave atual (que começa por "AQ.") continuar a dar erro 429 ou 401 nos logs,
-  // substitua-a aqui por uma nova chave gerada no Google AI Studio (que começará por "AIzaSy").
+  // Cole aqui sua chave real do Google AI Studio.
+  // Recomendo gerar uma nova chave, pois a anterior foi exposta na conversa.
   final String _apiKey =
       'AQ.Ab8RN6LHBVV5EQ5P2q6fiuYFa7e3iHH80Qlb-QUyAe3DEw9yzQ';
 
@@ -13,15 +13,12 @@ class AIService {
     bool forcarJson = false,
     Uint8List? bytesImagem,
   }) async {
-    // Mantemos o endpoint atualizado do modelo flash 2.5 que você já configurou
     final url = Uri.parse(
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$_apiKey',
     );
 
-    // Estrutura base da requisição de conteúdo da API do Gemini
     List<Map<String, dynamic>> partsList = [];
 
-    // Se houver uma imagem em bytes recebida, injetamos no payload no padrão inlineData
     if (bytesImagem != null) {
       partsList.add({
         'inlineData': {
@@ -31,7 +28,6 @@ class AIService {
       });
     }
 
-    // Inserimos o texto do prompt
     partsList.add({'text': prompt});
 
     Map<String, dynamic> requestBody = {
@@ -47,7 +43,6 @@ class AIService {
     }
 
     try {
-      // Pequeno delay de segurança para evitar rajadas de requisições acidentais
       await Future.delayed(const Duration(milliseconds: 500));
 
       final response = await http.post(
@@ -56,7 +51,6 @@ class AIService {
         body: jsonEncode(requestBody),
       );
 
-      // DIAGNÓSTICO: Expõe a resposta real do servidor da Google no terminal do VS Code caso não seja sucesso
       if (response.statusCode != 200) {
         print("======== DIAGNÓSTICO DE ERRO GEMINI ========");
         print("STATUS CODE: ${response.statusCode}");
@@ -66,11 +60,28 @@ class AIService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['candidates'][0]['content']['parts'][0]['text'];
+
+        final candidates = data['candidates'];
+        if (candidates == null || candidates.isEmpty) {
+          return "ERRO_SEM_CANDIDATES";
+        }
+
+        final content = candidates[0]['content'];
+        final parts = content?['parts'];
+
+        if (parts == null || parts.isEmpty || parts[0]['text'] == null) {
+          return "ERRO_RESPOSTA_VAZIA";
+        }
+
+        return parts[0]['text'].toString();
       }
 
       if (response.statusCode == 429) {
         return "ERRO_429: Limite de requisições excedido ou chave de API inválida. Verifique o terminal do VS Code para ver o relatório completo do erro.";
+      }
+
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        return "ERRO_AUTH: Chave de API inválida, sem permissão ou bloqueada.";
       }
 
       return "ERRO_STATUS_${response.statusCode}";
@@ -80,37 +91,82 @@ class AIService {
     }
   }
 
-  // CORRIGIDO: Nome alinhado perfeitamente com a chamada da linha 1114 da HomeScreen
+  String _limparJson(String resposta) {
+    return resposta.replaceAll('```json', '').replaceAll('```', '').trim();
+  }
+
+  double _converterNumero(dynamic valor) {
+    if (valor == null) return 0.0;
+
+    if (valor is int) return valor.toDouble();
+    if (valor is double) return valor;
+
+    return double.tryParse(valor.toString().replaceAll(',', '.').trim()) ?? 0.0;
+  }
+
   Future<String> gerarSugestaoTreino({
     required String objetivo,
     required String nivel,
     required List<String> exerciciosDisponiveis,
   }) async {
     String prompt =
-        'Crie um planejamento de treino estruturado para o objetivo de $objetivo, nível $nivel, utilizando exclusivamente os exercícios fornecidos na sua lista: ${exerciciosDisponiveis.join(', ')}.';
+        '''
+Crie um planejamento de treino estruturado para o objetivo de $objetivo, nível $nivel.
+
+Use exclusivamente os exercícios fornecidos nesta lista:
+${exerciciosDisponiveis.join(', ')}
+
+Responda em português, de forma organizada, profissional e pronta para o professor revisar.
+''';
+
     return _executarChamadaGemini(prompt, forcarJson: false);
   }
 
-  // Mantido para a leitura de evolução da HomeScreen (linha 1399)
   Future<String> analisarProgressaoCarga({
     required String nomeExercicio,
     required List<String> historicoCargas,
   }) async {
     String prompt =
-        'Analise a progressão de carga do exercício "$nomeExercicio". Histórico de cargas: ${historicoCargas.join(' -> ')}. Dê um feedback curto, profissional e motivador.';
+        '''
+Analise a progressão de carga do exercício "$nomeExercicio".
+
+Histórico de cargas:
+${historicoCargas.join(' -> ')}
+
+Dê um feedback curto, profissional, seguro e motivador.
+Não incentive aumento exagerado de carga.
+Priorize técnica, constância e evolução gradual.
+''';
+
     return _executarChamadaGemini(prompt, forcarJson: false);
   }
 
-  // NOVA FUNÇÃO: Integração multimodal HTTP com o Scanner de Pratos da HomeScreen
   Future<Map<String, dynamic>> analisarRefeicaoPorFoto(
     Uint8List bytesImagem,
   ) async {
-    const prompt =
-        "Analise a imagem desta refeição. Identifique os alimentos presentes, estime as porções visíveis e calcule o total aproximado de calorias (kcal) e proteínas (g). "
-        "Você DEVE responder estritamente em formato JSON válido, sem qualquer tipo de bloco de formatação ou markdown, contendo as seguintes chaves exatas: "
-        "'descricao': (um texto resumido do prato, ex: 'Arroz branco, feijão carioca e filé de frango grelhado'), "
-        "'calorias': (apenas o número inteiro de kcal, ex: 520), "
-        "'proteinas': (apenas o número inteiro de gramas de proteína, ex: 42).";
+    const prompt = '''
+Aja como um nutricionista esportivo especialista em estimativa visual de refeições.
+
+Analise a imagem desta refeição. Identifique os alimentos visíveis, estime as porções e calcule os macronutrientes aproximados.
+
+Regras obrigatórias:
+- Use prato, talheres, copos, marmitas e recipientes como referência de escala.
+- Evite exagerar calorias por causa de foto tirada muito perto.
+- Seja realista e conservador.
+- Se não tiver certeza, informe uma estimativa média.
+- Não dê diagnóstico médico.
+- Não escreva texto fora do JSON.
+
+Responda estritamente em JSON válido, sem markdown, com estas chaves exatas:
+
+{
+  "descricao": "Descrição resumida do prato com peso aproximado",
+  "calorias": 520,
+  "proteinas": 42,
+  "carboidratos": 55,
+  "gorduras": 18
+}
+''';
 
     try {
       String respostaPura = await _executarChamadaGemini(
@@ -119,18 +175,37 @@ class AIService {
         bytesImagem: bytesImagem,
       );
 
-      String jsonLimpo = respostaPura
-          .replaceAll('```json', '')
-          .replaceAll('```', '')
-          .trim();
+      if (respostaPura.startsWith("ERRO_")) {
+        print("Erro retornado pelo Gemini no scanner: $respostaPura");
+        return {
+          'descricao': 'Falha ao processar alimentos na imagem.',
+          'calorias': 0.0,
+          'proteinas': 0.0,
+          'carboidratos': 0.0,
+          'gorduras': 0.0,
+        };
+      }
 
-      return jsonDecode(jsonLimpo);
+      String jsonLimpo = _limparJson(respostaPura);
+
+      final Map<String, dynamic> dados = jsonDecode(jsonLimpo);
+
+      return {
+        'descricao': dados['descricao']?.toString() ?? 'Refeição estimada',
+        'calorias': _converterNumero(dados['calorias']),
+        'proteinas': _converterNumero(dados['proteinas']),
+        'carboidratos': _converterNumero(dados['carboidratos']),
+        'gorduras': _converterNumero(dados['gorduras']),
+      };
     } catch (e) {
       print("Erro na análise multimodal da imagem no AIService: $e");
+
       return {
         'descricao': 'Falha ao processar alimentos na imagem.',
-        'calorias': 0,
-        'proteinas': 0,
+        'calorias': 0.0,
+        'proteinas': 0.0,
+        'carboidratos': 0.0,
+        'gorduras': 0.0,
       };
     }
   }
@@ -142,21 +217,33 @@ class AIService {
   }) async {
     String promptContrato =
         '''
-    Você é um Personal Trainer experiente. Monte uma estrutura completa de treino focado em "$objetivo" para o nível de experiência "$nivel".
-    Use exclusivamente estes exercícios: ${exerciciosDisponiveis.join(', ')}. Não invente exercícios fora desta lista.
+Você é um Personal Trainer experiente.
 
-    Retorne OBRIGATORIAMENTE um objeto JSON válido seguindo estritamente esta estrutura de chaves:
+Monte uma estrutura completa de treino focado em "$objetivo" para o nível de experiência "$nivel".
+
+Use exclusivamente estes exercícios:
+${exerciciosDisponiveis.join(', ')}
+
+Não invente exercícios fora desta lista.
+
+Retorne obrigatoriamente um objeto JSON válido seguindo exatamente esta estrutura:
+
+{
+  "treinos": [
     {
-      "treinos": [
+      "nome": "Treino A",
+      "exercicios": [
         {
-          "nome": "Treino A",
-          "exercicios": [
-            {"nome": "Nome do Exercício", "series": 4, "repeticoes": 12, "descanso": "60s"}
-          ]
+          "nome": "Nome do Exercício",
+          "series": 4,
+          "repeticoes": 12,
+          "descanso": "60s"
         }
       ]
     }
-    ''';
+  ]
+}
+''';
 
     String respostaPura = await _executarChamadaGemini(
       promptContrato,
@@ -165,25 +252,34 @@ class AIService {
 
     if (respostaPura.startsWith("ERRO_429")) {
       throw Exception(
-        "A API do Gemini barrou a requisição (Erro 429). Veja o RESPONSE BODY detalhado impresso no terminal do seu VS Code.",
+        "A API do Gemini barrou a requisição. Erro 429. Veja o RESPONSE BODY detalhado no terminal do VS Code.",
       );
     }
 
     if (respostaPura == "ERRO_CONEXAO" ||
-        respostaPura.startsWith("ERRO_STATUS_")) {
+        respostaPura.startsWith("ERRO_STATUS_") ||
+        respostaPura.startsWith("ERRO_AUTH") ||
+        respostaPura.startsWith("ERRO_SEM_CANDIDATES") ||
+        respostaPura.startsWith("ERRO_RESPOSTA_VAZIA")) {
       throw Exception(
         "O serviço de IA retornou uma inconsistência: $respostaPura",
       );
     }
 
-    String jsonLimpo = respostaPura
-        .replaceAll('```json', '')
-        .replaceAll('```', '')
-        .trim();
+    String jsonLimpo = _limparJson(respostaPura);
 
     try {
-      return jsonDecode(jsonLimpo);
+      final Map<String, dynamic> dados = jsonDecode(jsonLimpo);
+
+      if (!dados.containsKey('treinos')) {
+        return {'treinos': []};
+      }
+
+      return dados;
     } catch (e) {
+      print("Falha ao decodificar JSON de treino: $e");
+      print("Resposta recebida: $jsonLimpo");
+
       throw Exception("Falha ao decodificar a estrutura de treinos.");
     }
   }
