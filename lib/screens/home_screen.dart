@@ -1874,6 +1874,23 @@ class _HomeScreenState extends State<HomeScreen> {
                   pagamentoAprovado = true;
                   t.cancel();
 
+                  if (_alunoSelecionadoId != null) {
+                    await FirebaseFirestore.instance
+                        .collection('usuarios')
+                        .doc(_alunoSelecionadoId)
+                        .set({
+                          'iaStatusAssinatura': 'Ativo',
+                          'dataInicioIA': FieldValue.serverTimestamp(),
+                          'dataFimIA': Timestamp.fromDate(
+                            DateTime.now().add(const Duration(days: 30)),
+                          ),
+                        }, SetOptions(merge: true));
+                  }
+
+                  if (mounted) {
+                    setState(() {});
+                  }
+
                   Navigator.pop(dialogContext);
 
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -2148,6 +2165,26 @@ class _HomeScreenState extends State<HomeScreen> {
                                     if (aprovado && mounted) {
                                       pagamentoAprovado = true;
                                       timer?.cancel();
+
+                                      if (_alunoSelecionadoId != null) {
+                                        await FirebaseFirestore.instance
+                                            .collection('usuarios')
+                                            .doc(_alunoSelecionadoId)
+                                            .set({
+                                              'iaStatusAssinatura': 'Ativo',
+                                              'dataInicioIA':
+                                                  FieldValue.serverTimestamp(),
+                                              'dataFimIA': Timestamp.fromDate(
+                                                DateTime.now().add(
+                                                  const Duration(days: 30),
+                                                ),
+                                              ),
+                                            }, SetOptions(merge: true));
+                                      }
+
+                                      if (mounted) {
+                                        setState(() {});
+                                      }
 
                                       Navigator.pop(dialogContext);
 
@@ -4559,9 +4596,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 color: Colors.grey[600],
                                               ),
                                             ),
-                                            if (iaStatus != 'Ativo' &&
+                                            if (!temAcessoLiberado &&
                                                 iaStatus !=
-                                                    'PendenteAprovacao') ...[
+                                                    'PendenteAprovacao' &&
+                                                iaStatus != 'Bloqueado') ...[
                                               const SizedBox(height: 8),
                                               ElevatedButton.icon(
                                                 style: ElevatedButton.styleFrom(
@@ -4606,7 +4644,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ),
                                       ),
 
-                                      if (iaStatus == 'NaoAtivado')
+                                      if (!temAcessoLiberado &&
+                                          iaStatus == 'NaoAtivado')
                                         ElevatedButton(
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: Colors.purple[700],
@@ -4661,7 +4700,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ),
                                           onPressed: _abrirScannerDeRefeicao,
                                         ),
-                                      if (iaStatus == 'Bloqueado')
+                                      if (!temAcessoLiberado &&
+                                          iaStatus == 'Bloqueado')
                                         ElevatedButton(
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: Colors.purple,

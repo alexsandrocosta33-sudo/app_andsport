@@ -6,8 +6,11 @@ const { MercadoPagoConfig, Payment } = require("mercadopago");
 admin.initializeApp();
 
 const db = admin.firestore();
-
 const MERCADOPAGO_ACCESS_TOKEN = defineSecret("MERCADOPAGO_ACCESS_TOKEN");
+
+// Para teste, pode usar 1.0.
+// Quando validar tudo, volte para 20.0.
+const VALOR_SCANNER_PRO = 20.0;
 
 exports.criarPixScannerPro = onCall(
   {
@@ -34,25 +37,39 @@ exports.criarPixScannerPro = onCall(
 
     const payment = new Payment(client);
 
-    const vencimento = new Date(Date.now() + 5 * 60 * 1000);
+    // Antes estava 5 minutos. Para Pix via banco, 15 minutos é mais seguro.
+    const vencimento = new Date(Date.now() + 15 * 60 * 1000);
 
     const referenciaExterna = `scanner_pro_${alunoId}_${Date.now()}`;
 
     try {
       const pagamento = await payment.create({
         body: {
-          transaction_amount: 20.0,
+          transaction_amount: VALOR_SCANNER_PRO,
           description: "Scanner Nutricional PRO - AndSport",
           payment_method_id: "pix",
           external_reference: referenciaExterna,
           date_of_expiration: vencimento.toISOString(),
           payer: {
             email: emailAluno,
+            first_name: "Aluno",
+            last_name: "AndSport",
           },
         },
         requestOptions: {
           idempotencyKey: referenciaExterna,
         },
+      });
+
+      console.log("PIX criado Mercado Pago:", {
+        id: pagamento.id,
+        status: pagamento.status,
+        status_detail: pagamento.status_detail,
+        transaction_amount: pagamento.transaction_amount,
+        external_reference: pagamento.external_reference,
+        date_of_expiration: pagamento.date_of_expiration,
+        qr_code_gerado:
+          pagamento.point_of_interaction?.transaction_data?.qr_code ? "SIM" : "NAO",
       });
 
       const qrCode =
@@ -73,7 +90,8 @@ exports.criarPixScannerPro = onCall(
         mercadoPagoPaymentId: pagamentoId,
         externalReference: referenciaExterna,
         status: pagamento.status || "pending",
-        valor: 20.0,
+        statusDetail: pagamento.status_detail || "---",
+        valor: VALOR_SCANNER_PRO,
         qrCode,
         qrCodeBase64,
         criadoEm: admin.firestore.FieldValue.serverTimestamp(),
@@ -95,9 +113,16 @@ exports.criarPixScannerPro = onCall(
         qrCodeBase64,
         expiraEm: vencimento.toISOString(),
         status: pagamento.status || "pending",
+        statusDetail: pagamento.status_detail || "---",
       };
     } catch (error) {
-      console.error("Erro ao criar PIX Mercado Pago:", error);
+      console.error("Erro ao criar PIX Mercado Pago:", {
+        message: error.message,
+        status: error.status,
+        cause: error.cause,
+        error,
+      });
+
       throw new HttpsError(
         "internal",
         "Não foi possível criar o PIX. Tente novamente."
@@ -119,7 +144,7 @@ exports.consultarStatusPixScannerPro = onCall(
       );
     }
 
-    const pagamentoId = request.data.pagamentoId;
+    const pagamentoId = request.data?.pagamentoId;
 
     if (!pagamentoId) {
       throw new HttpsError(
@@ -160,14 +185,30 @@ exports.consultarStatusPixScannerPro = onCall(
       });
 
       const status = pagamento.status || "unknown";
+      const statusDetail = pagamento.status_detail || "---";
 
-      await db.collection("pagamentos_scanner_ia").doc(pagamentoId.toString()).set(
-        {
-          status,
-          atualizadoEm: admin.firestore.FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      );
+      console.log("Status Mercado Pago consultado:", {
+        id: pagamento.id,
+        status,
+        status_detail: statusDetail,
+        transaction_amount: pagamento.transaction_amount,
+        date_created: pagamento.date_created,
+        date_approved: pagamento.date_approved,
+        date_last_updated: pagamento.date_last_updated,
+        external_reference: pagamento.external_reference,
+      });
+
+      await db
+        .collection("pagamentos_scanner_ia")
+        .doc(pagamentoId.toString())
+        .set(
+          {
+            status,
+            statusDetail,
+            atualizadoEm: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
 
       if (status === "approved") {
         await liberarScannerPro(dadosPagamento.alunoId, pagamentoId.toString());
@@ -175,10 +216,17 @@ exports.consultarStatusPixScannerPro = onCall(
 
       return {
         status,
+        statusDetail,
         aprovado: status === "approved",
       };
     } catch (error) {
-      console.error("Erro ao consultar pagamento:", error);
+      console.error("Erro ao consultar pagamento:", {
+        message: error.message,
+        status: error.status,
+        cause: error.cause,
+        error,
+      });
+
       throw new HttpsError(
         "internal",
         "Não foi possível consultar o status do PIX."
@@ -202,8 +250,15 @@ exports.webhookMercadoPagoScannerPro = onRequest(
 
       const type = req.query.type || req.body?.type || req.body?.topic;
 
+      console.log("Webhook Mercado Pago recebido:", {
+        query: req.query,
+        body: req.body,
+        paymentId,
+        type,
+      });
+
       if (!paymentId) {
-        console.log("Webhook recebido sem paymentId:", req.query, req.body);
+        console.log("Webhook recebido sem paymentId.");
         res.status(200).send("sem paymentId");
         return;
       }
@@ -226,6 +281,18 @@ exports.webhookMercadoPagoScannerPro = onRequest(
       });
 
       const status = pagamento.status || "unknown";
+      const statusDetail = pagamento.status_detail || "---";
+
+      console.log("Pagamento recebido no webhook:", {
+        id: pagamento.id,
+        status,
+        status_detail: statusDetail,
+        transaction_amount: pagamento.transaction_amount,
+        date_created: pagamento.date_created,
+        date_approved: pagamento.date_approved,
+        date_last_updated: pagamento.date_last_updated,
+        external_reference: pagamento.external_reference,
+      });
 
       const pagamentoDoc = await db
         .collection("pagamentos_scanner_ia")
@@ -240,14 +307,18 @@ exports.webhookMercadoPagoScannerPro = onRequest(
 
       const dados = pagamentoDoc.data();
 
-      await db.collection("pagamentos_scanner_ia").doc(paymentId.toString()).set(
-        {
-          status,
-          atualizadoEm: admin.firestore.FieldValue.serverTimestamp(),
-          webhookRecebidoEm: admin.firestore.FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      );
+      await db
+        .collection("pagamentos_scanner_ia")
+        .doc(paymentId.toString())
+        .set(
+          {
+            status,
+            statusDetail,
+            atualizadoEm: admin.firestore.FieldValue.serverTimestamp(),
+            webhookRecebidoEm: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
 
       if (status === "approved") {
         await liberarScannerPro(dados.alunoId, paymentId.toString());
@@ -255,7 +326,13 @@ exports.webhookMercadoPagoScannerPro = onRequest(
 
       res.status(200).send("ok");
     } catch (error) {
-      console.error("Erro no webhook Mercado Pago:", error);
+      console.error("Erro no webhook Mercado Pago:", {
+        message: error.message,
+        status: error.status,
+        cause: error.cause,
+        error,
+      });
+
       res.status(200).send("erro tratado");
     }
   }
