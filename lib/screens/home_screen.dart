@@ -13,6 +13,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../services/auth_service.dart';
 import '../services/workout_service.dart';
 import '../services/ai_service.dart';
+import '../screens/treinos_padrao_page.dart';
 import 'package:flutter/services.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -60,6 +61,21 @@ class _HomeScreenState extends State<HomeScreen> {
   final _editarCellularAlunoController = TextEditingController();
 
   final _anotarCargaController = TextEditingController();
+  final _avaliacaoPesoController = TextEditingController();
+  final _avaliacaoAlturaController = TextEditingController();
+  final _avaliacaoGorduraController = TextEditingController();
+  final _avaliacaoMassaMagraController = TextEditingController();
+  final _avaliacaoCinturaController = TextEditingController();
+  final _avaliacaoAbdomenController = TextEditingController();
+  final _avaliacaoQuadrilController = TextEditingController();
+  final _avaliacaoPeitoralController = TextEditingController();
+  final _avaliacaoBracoDireitoController = TextEditingController();
+  final _avaliacaoBracoEsquerdoController = TextEditingController();
+  final _avaliacaoCoxaDireitaController = TextEditingController();
+  final _avaliacaoCoxaEsquerdaController = TextEditingController();
+  final _avaliacaoPanturrilhaDireitaController = TextEditingController();
+  final _avaliacaoPanturrilhaEsquerdaController = TextEditingController();
+  final _avaliacaoObservacoesController = TextEditingController();
 
   Timer? _descansoTimer;
   int _tempoRestanteSegundos = 60;
@@ -92,6 +108,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _carregandoPerfil = true;
 
   String _fichaSelecionadaAluno = 'A';
+  Future<Map<String, dynamic>?>? _futureTreinosAntigos;
+  String? _alunoIdCacheTreinosAntigos;
   String _grupoSelecionadoParaNovoExercicio = 'Peito';
   int _abaAtualProfessor = 0;
 
@@ -136,8 +154,15 @@ class _HomeScreenState extends State<HomeScreen> {
           .get();
 
       if (snap.docs.isNotEmpty) {
-        final dadosUsuario = snap.docs.first.data();
-        String cargo = dadosUsuario['cargo'] ?? 'aluno';
+        final docRef = snap.docs.first;
+        final dadosUsuario = docRef.data();
+
+        String cargo = (dadosUsuario['cargo'] ?? '').toString().toLowerCase().trim();
+        final bool legacyEProfessor = dadosUsuario['eProfessor'] == true;
+
+        if (cargo.isEmpty) {
+          cargo = legacyEProfessor ? 'professor' : 'aluno';
+        }
 
         if (cargo == 'admin') {
           setState(() {
@@ -146,9 +171,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _alunoSelecionadoId = null;
             _carregandoPerfil = false;
           });
-        } else if (cargo == 'professor' ||
-            emailLogado.contains('admin') ||
-            emailLogado.contains('professor')) {
+        } else if (cargo == 'professor') {
           setState(() {
             _eAdminGeral = false;
             _eProfessor = true;
@@ -159,7 +182,7 @@ class _HomeScreenState extends State<HomeScreen> {
           setState(() {
             _eAdminGeral = false;
             _eProfessor = false;
-            _alunoSelecionadoId = snap.docs.first.id;
+            _alunoSelecionadoId = docRef.id;
             _carregandoPerfil = false;
           });
         }
@@ -452,6 +475,166 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       print("Erro ao cadastrar professor: $e");
     }
+  }
+
+  void _abrirEdicaoProfessor(String professorId, Map<String, dynamic> dados) {
+    final nomeEditController = TextEditingController(
+      text: (dados['nome'] ?? '').toString(),
+    );
+    final emailEditController = TextEditingController(
+      text: (dados['email'] ?? '').toString(),
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.edit, color: Colors.blue),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Editar Professor',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nomeEditController,
+              decoration: const InputDecoration(
+                labelText: 'Nome do Professor',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: emailEditController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: 'E-mail do Professor',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'A senha de login não é alterada aqui. Para trocar senha, use recuperação de senha ou uma função administrativa específica.',
+              style: TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: Colors.black),
+            ),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.black,
+              foregroundColor: Colors.amber,
+            ),
+            icon: const Icon(Icons.save),
+            label: const Text('Salvar'),
+            onPressed: () async {
+              final nome = nomeEditController.text.trim();
+              final email = emailEditController.text.trim();
+
+              if (nome.isEmpty || email.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Informe nome e e-mail do professor.'),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+                return;
+              }
+
+              await FirebaseFirestore.instance
+                  .collection('usuarios')
+                  .doc(professorId)
+                  .set({
+                    'nome': nome,
+                    'email': email,
+                    'cargo': 'professor',
+                    'atualizadoEm': FieldValue.serverTimestamp(),
+                  }, SetOptions(merge: true));
+
+              if (!mounted) return;
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Professor atualizado com sucesso!'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmarExclusaoProfessor(String professorId, String nomeProfessor) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning, color: Colors.red),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Excluir Professor?',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Tem certeza que deseja remover "$nomeProfessor" da lista de professores?\n\nAtenção: isso remove o cadastro no Firestore. O login no Firebase Authentication só pode ser removido com uma função administrativa específica.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: Colors.black),
+            ),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.delete),
+            label: const Text('Excluir'),
+            onPressed: () async {
+              await FirebaseFirestore.instance
+                  .collection('usuarios')
+                  .doc(professorId)
+                  .delete();
+
+              if (!mounted) return;
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Professor removido da lista.'),
+                  backgroundColor: Colors.redAccent,
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   void _abrirEdicaoDadosAluno(Map<String, dynamic> dadosAtuais) {
@@ -1029,6 +1212,1119 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  double _converterNumeroAvaliacao(String valor) {
+    final textoLimpo = valor.trim().replaceAll(',', '.');
+    return double.tryParse(textoLimpo) ?? 0.0;
+  }
+
+  String _formatarDataAvaliacao(dynamic timestamp) {
+    if (timestamp == null || timestamp is! Timestamp) {
+      return 'Data não registrada';
+    }
+
+    final data = timestamp.toDate();
+    final dia = data.day.toString().padLeft(2, '0');
+    final mes = data.month.toString().padLeft(2, '0');
+    final ano = data.year.toString();
+    final hora = data.hour.toString().padLeft(2, '0');
+    final minuto = data.minute.toString().padLeft(2, '0');
+
+    return '$dia/$mes/$ano às $hora:$minuto';
+  }
+
+  Widget _campoNumeroAvaliacao({
+    required String label,
+    required TextEditingController controller,
+    String suffix = '',
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: TextField(
+        controller: controller,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: InputDecoration(
+          labelText: label,
+          suffixText: suffix,
+          border: const OutlineInputBorder(),
+        ),
+      ),
+    );
+  }
+
+  void _limparCamposAvaliacaoFisica() {
+    _avaliacaoPesoController.clear();
+    _avaliacaoAlturaController.clear();
+    _avaliacaoGorduraController.clear();
+    _avaliacaoMassaMagraController.clear();
+    _avaliacaoCinturaController.clear();
+    _avaliacaoAbdomenController.clear();
+    _avaliacaoQuadrilController.clear();
+    _avaliacaoPeitoralController.clear();
+    _avaliacaoBracoDireitoController.clear();
+    _avaliacaoBracoEsquerdoController.clear();
+    _avaliacaoCoxaDireitaController.clear();
+    _avaliacaoCoxaEsquerdaController.clear();
+    _avaliacaoPanturrilhaDireitaController.clear();
+    _avaliacaoPanturrilhaEsquerdaController.clear();
+    _avaliacaoObservacoesController.clear();
+  }
+
+  void _abrirPopupNovaAvaliacaoFisica() {
+    if (_alunoSelecionadoId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecione um aluno antes de cadastrar a avaliação.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    _limparCamposAvaliacaoFisica();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.monitor_weight, color: Colors.deepPurple),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Nova Avaliação Física',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Aluno: ${_alunoSelecionadoNome ?? 'Aluno selecionado'}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blueGrey,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Dados principais',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                _campoNumeroAvaliacao(
+                  label: 'Peso corporal',
+                  controller: _avaliacaoPesoController,
+                  suffix: 'kg',
+                ),
+                _campoNumeroAvaliacao(
+                  label: 'Altura',
+                  controller: _avaliacaoAlturaController,
+                  suffix: 'm',
+                ),
+                _campoNumeroAvaliacao(
+                  label: 'Gordura corporal',
+                  controller: _avaliacaoGorduraController,
+                  suffix: '%',
+                ),
+                _campoNumeroAvaliacao(
+                  label: 'Massa magra',
+                  controller: _avaliacaoMassaMagraController,
+                  suffix: 'kg',
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Medidas corporais',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                _campoNumeroAvaliacao(
+                  label: 'Cintura',
+                  controller: _avaliacaoCinturaController,
+                  suffix: 'cm',
+                ),
+                _campoNumeroAvaliacao(
+                  label: 'Abdômen',
+                  controller: _avaliacaoAbdomenController,
+                  suffix: 'cm',
+                ),
+                _campoNumeroAvaliacao(
+                  label: 'Quadril',
+                  controller: _avaliacaoQuadrilController,
+                  suffix: 'cm',
+                ),
+                _campoNumeroAvaliacao(
+                  label: 'Peitoral',
+                  controller: _avaliacaoPeitoralController,
+                  suffix: 'cm',
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _campoNumeroAvaliacao(
+                        label: 'Braço direito',
+                        controller: _avaliacaoBracoDireitoController,
+                        suffix: 'cm',
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _campoNumeroAvaliacao(
+                        label: 'Braço esquerdo',
+                        controller: _avaliacaoBracoEsquerdoController,
+                        suffix: 'cm',
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _campoNumeroAvaliacao(
+                        label: 'Coxa direita',
+                        controller: _avaliacaoCoxaDireitaController,
+                        suffix: 'cm',
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _campoNumeroAvaliacao(
+                        label: 'Coxa esquerda',
+                        controller: _avaliacaoCoxaEsquerdaController,
+                        suffix: 'cm',
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _campoNumeroAvaliacao(
+                        label: 'Panturrilha direita',
+                        controller: _avaliacaoPanturrilhaDireitaController,
+                        suffix: 'cm',
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _campoNumeroAvaliacao(
+                        label: 'Panturrilha esquerda',
+                        controller: _avaliacaoPanturrilhaEsquerdaController,
+                        suffix: 'cm',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _avaliacaoObservacoesController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Observações da avaliação',
+                    hintText: 'Ex: queixas, objetivo, evolução percebida...',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: Colors.black),
+            ),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.deepPurple,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.save),
+            label: const Text('Salvar Avaliação'),
+            onPressed: () => _salvarAvaliacaoFisica(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _salvarAvaliacaoFisica() async {
+    if (_alunoSelecionadoId == null) return;
+
+    final peso = _converterNumeroAvaliacao(_avaliacaoPesoController.text);
+    final altura = _converterNumeroAvaliacao(_avaliacaoAlturaController.text);
+    final imc = altura > 0 ? peso / (altura * altura) : 0.0;
+
+    if (peso <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Informe pelo menos o peso do aluno para salvar.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    await FirebaseFirestore.instance
+        .collection('usuarios')
+        .doc(_alunoSelecionadoId)
+        .collection('avaliacoes_fisicas')
+        .add({
+          'dataAvaliacao': FieldValue.serverTimestamp(),
+          'peso': peso,
+          'altura': altura,
+          'imc': imc,
+          'gorduraCorporal': _converterNumeroAvaliacao(
+            _avaliacaoGorduraController.text,
+          ),
+          'massaMagra': _converterNumeroAvaliacao(
+            _avaliacaoMassaMagraController.text,
+          ),
+          'cintura': _converterNumeroAvaliacao(
+            _avaliacaoCinturaController.text,
+          ),
+          'abdomen': _converterNumeroAvaliacao(
+            _avaliacaoAbdomenController.text,
+          ),
+          'quadril': _converterNumeroAvaliacao(
+            _avaliacaoQuadrilController.text,
+          ),
+          'peitoral': _converterNumeroAvaliacao(
+            _avaliacaoPeitoralController.text,
+          ),
+          'bracoDireito': _converterNumeroAvaliacao(
+            _avaliacaoBracoDireitoController.text,
+          ),
+          'bracoEsquerdo': _converterNumeroAvaliacao(
+            _avaliacaoBracoEsquerdoController.text,
+          ),
+          'coxaDireita': _converterNumeroAvaliacao(
+            _avaliacaoCoxaDireitaController.text,
+          ),
+          'coxaEsquerda': _converterNumeroAvaliacao(
+            _avaliacaoCoxaEsquerdaController.text,
+          ),
+          'panturrilhaDireita': _converterNumeroAvaliacao(
+            _avaliacaoPanturrilhaDireitaController.text,
+          ),
+          'panturrilhaEsquerda': _converterNumeroAvaliacao(
+            _avaliacaoPanturrilhaEsquerdaController.text,
+          ),
+          'observacoes': _avaliacaoObservacoesController.text.trim(),
+          'alunoNome': _alunoSelecionadoNome ?? 'Aluno',
+          'registradoPorUid': _auth.currentUser?.uid ?? '---',
+          'registradoPorEmail': _auth.currentUser?.email ?? '---',
+          'criadoEm': FieldValue.serverTimestamp(),
+        });
+
+    _limparCamposAvaliacaoFisica();
+
+    if (!mounted) return;
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Avaliação física salva no histórico do aluno! 📊'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  Widget _linhaResumoAvaliacao(String titulo, String valor) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(titulo, style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+          Text(
+            valor,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _mesReferenciaAtualAvaliacaoFisica() {
+    final agora = DateTime.now();
+    return '${agora.year}-${agora.month.toString().padLeft(2, '0')}';
+  }
+
+  bool _avaliacaoFisicaProAtiva(Map<String, dynamic> dadosAluno) {
+    final status =
+        (dadosAluno['avaliacaoFisicaStatusAssinatura'] ?? 'NaoAtivado')
+            .toString();
+    final Timestamp? dataFim =
+        dadosAluno['dataFimAvaliacaoFisica'] as Timestamp?;
+
+    if (status != 'Ativo') return false;
+    if (dataFim == null) return true;
+
+    return dataFim.toDate().isAfter(DateTime.now());
+  }
+
+  bool _comboPerformanceIAAtivo(Map<String, dynamic> dadosAluno) {
+    final plano = (dadosAluno['planoAvaliacaoFisica'] ?? '').toString();
+    final planoCombo = plano == 'Combo Performance IA';
+    return planoCombo && _avaliacaoFisicaProAtiva(dadosAluno);
+  }
+
+  int _limiteMensalAnalisesAvaliacaoFisica(Map<String, dynamic> dadosAluno) {
+    return _comboPerformanceIAAtivo(dadosAluno) ? 8 : 4;
+  }
+
+  int _usosAnaliseAvaliacaoFisicaNoMes(Map<String, dynamic> dadosAluno) {
+    final mesAtual = _mesReferenciaAtualAvaliacaoFisica();
+    final mesSalvo = (dadosAluno['avaliacaoFisicaIAMesReferencia'] ?? '')
+        .toString();
+    if (mesSalvo != mesAtual) return 0;
+    return int.tryParse(
+          (dadosAluno['avaliacaoFisicaIAUsosMes'] ?? 0).toString(),
+        ) ??
+        0;
+  }
+
+  Future<void> _liberarAvaliacaoFisicaProManual({required bool combo}) async {
+    if (_alunoSelecionadoId == null) return;
+
+    final agora = DateTime.now();
+    await FirebaseFirestore.instance
+        .collection('usuarios')
+        .doc(_alunoSelecionadoId)
+        .set({
+          'avaliacaoFisicaStatusAssinatura': 'Ativo',
+          'planoAvaliacaoFisica': combo
+              ? 'Combo Performance IA'
+              : 'Evolução Física PRO',
+          'valorAvaliacaoFisica': combo ? 29.90 : 19.90,
+          'dataInicioAvaliacaoFisica': FieldValue.serverTimestamp(),
+          'dataFimAvaliacaoFisica': Timestamp.fromDate(
+            agora.add(const Duration(days: 30)),
+          ),
+          'avaliacaoFisicaIAMesReferencia':
+              _mesReferenciaAtualAvaliacaoFisica(),
+          'avaliacaoFisicaIAUsosMes': 0,
+          'atualizadoEm': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          combo
+              ? 'Combo Performance IA liberado por 30 dias para o aluno!'
+              : 'Evolução Física PRO liberada por 30 dias para o aluno!',
+        ),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  Widget _cardBloqueioAvaliacaoFisicaPro({bool professor = false}) {
+    return Card(
+      color: Colors.white,
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: Colors.deepPurple.withOpacity(0.12),
+                  child: const Icon(
+                    Icons.workspace_premium,
+                    color: Colors.deepPurple,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Evolução Física PRO',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                      SizedBox(height: 3),
+                      Text(
+                        'Histórico de avaliações + análise inteligente com IA.',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.deepPurple.withOpacity(0.07),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.deepPurple.withOpacity(0.22)),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Planos disponíveis',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.deepPurple,
+                    ),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    '• Evolução Física PRO: R\$ 19,90/mês — até 4 análises IA por mês.',
+                  ),
+                  Text(
+                    '• Combo Performance IA: R\$ 29,90/mês — Scanner + Evolução Física + até 8 análises IA por mês.',
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepPurple,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: () =>
+                        _mostrarPopupCompraAvaliacaoFisicaIA(combo: false),
+                    icon: const Icon(Icons.pix, size: 18),
+                    label: const Text(
+                      'Pagar R\$ 19,90',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.amber,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: () =>
+                        _mostrarPopupCompraAvaliacaoFisicaIA(combo: true),
+                    icon: const Icon(Icons.bolt, size: 18),
+                    label: const Text(
+                      'Combo R\$ 29,90',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              professor
+                  ? 'O professor pode gerar o PIX para o aluno. A liberação será automática após confirmação do Mercado Pago.'
+                  : 'Pague via PIX para liberar automaticamente seu histórico de evolução física e a análise IA.',
+              style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _construirCardAvaliacaoFisicaProfessor() {
+    if (_alunoSelecionadoId == null) return const SizedBox();
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(_alunoSelecionadoId)
+          .snapshots(),
+      builder: (context, snapAluno) {
+        if (!snapAluno.hasData || !snapAluno.data!.exists) {
+          return const SizedBox();
+        }
+
+        final dadosAluno = snapAluno.data!.data() as Map<String, dynamic>;
+        final proAtivo = _avaliacaoFisicaProAtiva(dadosAluno);
+        final plano = (dadosAluno['planoAvaliacaoFisica'] ?? 'Não contratado')
+            .toString();
+        final limiteIA = _limiteMensalAnalisesAvaliacaoFisica(dadosAluno);
+        final usosIA = _usosAnaliseAvaliacaoFisicaNoMes(dadosAluno);
+
+        return Card(
+          color: Colors.white,
+          elevation: 3,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ExpansionTile(
+            initiallyExpanded: false,
+            leading: const Icon(Icons.assignment_ind, color: Colors.deepPurple),
+            title: const Text(
+              'Histórico do Aluno / Avaliação Física',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(
+              proAtivo
+                  ? 'Plano ativo: $plano | IA: $usosIA/$limiteIA no mês'
+                  : 'Professor pode cadastrar avaliações. IA/visualização PRO dependem do plano.',
+              style: const TextStyle(fontSize: 12),
+            ),
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: proAtivo
+                            ? Colors.green.withOpacity(0.08)
+                            : Colors.orange.withOpacity(0.10),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: proAtivo
+                              ? Colors.green.withOpacity(0.25)
+                              : Colors.orange.withOpacity(0.35),
+                        ),
+                      ),
+                      child: Text(
+                        proAtivo
+                            ? '✅ $plano ativo. Limite mensal de análises IA: $usosIA/$limiteIA.'
+                            : '⚠️ Plano PRO ainda não ativo para o aluno. O professor pode cadastrar as avaliações físicas normalmente. A análise com IA e a visualização PRO ficam liberadas após pagamento.',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.deepPurple,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(42),
+                      ),
+                      onPressed: _abrirPopupNovaAvaliacaoFisica,
+                      icon: const Icon(Icons.add_chart),
+                      label: const Text(
+                        'Cadastrar Nova Avaliação Física',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: proAtivo
+                            ? Colors.deepPurple
+                            : Colors.grey,
+                        side: BorderSide(
+                          color: proAtivo ? Colors.deepPurple : Colors.grey,
+                        ),
+                        minimumSize: const Size.fromHeight(42),
+                      ),
+                      onPressed: proAtivo
+                          ? _abrirPopupAnaliseAvaliacaoFisicaIA
+                          : () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Para usar a análise com IA, ative a Evolução Física PRO ou o Combo Performance IA para este aluno.',
+                                  ),
+                                  backgroundColor: Colors.orange,
+                                  duration: Duration(seconds: 5),
+                                ),
+                              );
+                            },
+                      icon: Icon(proAtivo ? Icons.psychology : Icons.lock),
+                      label: Text(
+                        proAtivo
+                            ? 'Analisar evolução com IA'
+                            : 'Análise IA bloqueada - ativar plano PRO',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    if (!proAtivo) ...[
+                      const SizedBox(height: 12),
+                      _cardBloqueioAvaliacaoFisicaPro(professor: true),
+                    ],
+                    const SizedBox(height: 12),
+                    StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('usuarios')
+                          .doc(_alunoSelecionadoId)
+                          .collection('avaliacoes_fisicas')
+                          .orderBy('dataAvaliacao', descending: true)
+                          .snapshots(),
+                      builder: (context, snapAvaliacoes) {
+                        if (!snapAvaliacoes.hasData) {
+                          return const LinearProgressIndicator(
+                            color: Colors.deepPurple,
+                          );
+                        }
+
+                        final avaliacoes = snapAvaliacoes.data!.docs;
+
+                        if (avaliacoes.isEmpty) {
+                          return Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Text(
+                              'Nenhuma avaliação física cadastrada para este aluno ainda.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 13,
+                              ),
+                            ),
+                          );
+                        }
+
+                        final ultima =
+                            avaliacoes.first.data() as Map<String, dynamic>;
+                        final dataUltima = _formatarDataAvaliacao(
+                          ultima['dataAvaliacao'],
+                        );
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.deepPurple.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.deepPurple.withOpacity(0.25),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Última avaliação: $dataUltima',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      color: Colors.deepPurple,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _linhaResumoAvaliacao(
+                                    'Peso',
+                                    '${(ultima['peso'] ?? 0).toString()} kg',
+                                  ),
+                                  _linhaResumoAvaliacao(
+                                    'IMC',
+                                    '${double.tryParse((ultima['imc'] ?? 0).toString())?.toStringAsFixed(1) ?? '0.0'}',
+                                  ),
+                                  _linhaResumoAvaliacao(
+                                    'Gordura corporal',
+                                    '${(ultima['gorduraCorporal'] ?? 0).toString()}%',
+                                  ),
+                                  _linhaResumoAvaliacao(
+                                    'Cintura',
+                                    '${(ultima['cintura'] ?? 0).toString()} cm',
+                                  ),
+                                  if ((ultima['observacoes'] ?? '')
+                                      .toString()
+                                      .isNotEmpty) ...[
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Observações: ${ultima['observacoes']}',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            const Text(
+                              'Histórico cadastrado',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: avaliacoes.length > 5
+                                  ? 5
+                                  : avaliacoes.length,
+                              itemBuilder: (context, index) {
+                                final dados =
+                                    avaliacoes[index].data()
+                                        as Map<String, dynamic>;
+                                final data = _formatarDataAvaliacao(
+                                  dados['dataAvaliacao'],
+                                );
+
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[50],
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: Colors.grey.shade300,
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        data,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Peso: ${dados['peso'] ?? 0} kg | Gordura: ${dados['gorduraCorporal'] ?? 0}% | Cintura: ${dados['cintura'] ?? 0} cm',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[700],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _abrirPopupAnaliseAvaliacaoFisicaIA() async {
+    if (_alunoSelecionadoId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecione um aluno para a IA analisar.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    final alunoDoc = await FirebaseFirestore.instance
+        .collection('usuarios')
+        .doc(_alunoSelecionadoId)
+        .get();
+
+    final dadosAlunoAssinatura = alunoDoc.data() ?? <String, dynamic>{};
+    if (!_avaliacaoFisicaProAtiva(dadosAlunoAssinatura)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Evolução Física PRO não está ativa para este aluno.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final limiteIA = _limiteMensalAnalisesAvaliacaoFisica(dadosAlunoAssinatura);
+    final usosIA = _usosAnaliseAvaliacaoFisicaNoMes(dadosAlunoAssinatura);
+
+    if (usosIA >= limiteIA) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Limite mensal de análises IA atingido: $usosIA/$limiteIA.',
+          ),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(color: Colors.deepPurple),
+            SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                'IA analisando o histórico físico do aluno...',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(_alunoSelecionadoId)
+          .collection('avaliacoes_fisicas')
+          .orderBy('dataAvaliacao', descending: true)
+          .limit(12)
+          .get();
+
+      if (!mounted) return;
+
+      if (snap.docs.isEmpty) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Este aluno ainda não possui avaliações físicas cadastradas.',
+            ),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      final avaliacoesDesc = snap.docs;
+      final avaliacoesCronologicas = avaliacoesDesc.reversed.toList();
+      final primeira = avaliacoesCronologicas.first.data();
+      final ultima = avaliacoesCronologicas.last.data();
+
+      String valorCampo(
+        Map<String, dynamic> dados,
+        String campo,
+        String unidade,
+      ) {
+        final valor = dados[campo];
+        if (valor == null) return '0$unidade';
+        final numero = double.tryParse(valor.toString()) ?? 0.0;
+        if (numero == 0) return '0$unidade';
+        return '${numero.toStringAsFixed(numero.truncateToDouble() == numero ? 0 : 1)}$unidade';
+      }
+
+      double numeroCampo(Map<String, dynamic> dados, String campo) {
+        return double.tryParse((dados[campo] ?? 0).toString()) ?? 0.0;
+      }
+
+      String diferencaCampo(String titulo, String campo, String unidade) {
+        final inicial = numeroCampo(primeira, campo);
+        final atual = numeroCampo(ultima, campo);
+        final diff = atual - inicial;
+        final sinal = diff > 0 ? '+' : '';
+        return '$titulo: inicial ${inicial.toStringAsFixed(1)}$unidade, atual ${atual.toStringAsFixed(1)}$unidade, diferença $sinal${diff.toStringAsFixed(1)}$unidade';
+      }
+
+      final linhasHistorico = avaliacoesCronologicas
+          .map((doc) {
+            final dados = doc.data();
+            return '- ${_formatarDataAvaliacao(dados['dataAvaliacao'])}: '
+                'peso ${valorCampo(dados, 'peso', ' kg')}, '
+                'IMC ${valorCampo(dados, 'imc', '')}, '
+                'gordura ${valorCampo(dados, 'gorduraCorporal', '%')}, '
+                'massa magra ${valorCampo(dados, 'massaMagra', ' kg')}, '
+                'cintura ${valorCampo(dados, 'cintura', ' cm')}, '
+                'abdômen ${valorCampo(dados, 'abdomen', ' cm')}, '
+                'quadril ${valorCampo(dados, 'quadril', ' cm')}. '
+                'Observações: ${(dados['observacoes'] ?? '').toString().trim()}';
+          })
+          .join('\n');
+
+      final resumoNumerico = [
+        diferencaCampo('Peso', 'peso', ' kg'),
+        diferencaCampo('Gordura corporal', 'gorduraCorporal', '%'),
+        diferencaCampo('Massa magra', 'massaMagra', ' kg'),
+        diferencaCampo('Cintura', 'cintura', ' cm'),
+        diferencaCampo('Abdômen', 'abdomen', ' cm'),
+        diferencaCampo('Quadril', 'quadril', ' cm'),
+      ].join('\n');
+
+      final promptAnalise =
+          '''
+NÃO crie ficha de treino. NÃO invente dados. Você é uma inteligência de apoio ao professor de academia.
+Analise o histórico de avaliação física do aluno ${_alunoSelecionadoNome ?? 'selecionado'}.
+Use somente os dados abaixo e gere um resumo profissional, objetivo e fácil de entender.
+
+O resumo deve conter:
+1. Resumo geral da evolução.
+2. Pontos positivos.
+3. Pontos de atenção.
+4. Possível interpretação dos dados sem diagnóstico médico.
+5. Sugestão prática para o professor acompanhar o aluno nas próximas semanas.
+6. Uma mensagem curta que o professor poderia falar ao aluno.
+
+Regras:
+- Não faça diagnóstico médico.
+- Não prometa resultado.
+- Se algum campo estiver zerado ou ausente, diga que precisa de mais dados para análise daquele ponto.
+- Use linguagem profissional e motivadora.
+
+Resumo numérico comparando primeira e última avaliação:
+$resumoNumerico
+
+Histórico completo utilizado:
+$linhasHistorico
+''';
+
+      final respostaIA = await _aiService.gerarSugestaoTreino(
+        objetivo: promptAnalise,
+        nivel: 'análise de avaliação física, sem montar treino',
+        exerciciosDisponiveis: const [
+          'Não montar treino. Apenas analisar histórico físico do aluno.',
+        ],
+      );
+
+      await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(_alunoSelecionadoId)
+          .collection('analises_ia_avaliacao_fisica')
+          .add({
+            'resumo': respostaIA,
+            'alunoNome': _alunoSelecionadoNome ?? 'Aluno',
+            'quantidadeAvaliacoesUtilizadas': avaliacoesDesc.length,
+            'historicoUtilizado': linhasHistorico,
+            'criadoEm': FieldValue.serverTimestamp(),
+            'professorUid': _auth.currentUser?.uid ?? '---',
+            'professorEmail': _auth.currentUser?.email ?? '---',
+          });
+
+      await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(_alunoSelecionadoId)
+          .set({
+            'avaliacaoFisicaIAMesReferencia':
+                _mesReferenciaAtualAvaliacaoFisica(),
+            'avaliacaoFisicaIAUsosMes': usosIA + 1,
+            'ultimaAnaliseAvaliacaoFisicaEm': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      if (respostaIA.startsWith('ERRO_429') || respostaIA.contains('RESOURCE_EXHAUSTED')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Serviço de IA temporariamente indisponível por limite de uso. Verifique os créditos da API ou tente novamente mais tarde.',
+            ),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 8),
+          ),
+        );
+        return;
+      }
+
+      if (respostaIA.startsWith('ERRO_')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Falha na análise IA: $respostaIA'),
+            backgroundColor: Colors.redAccent,
+            duration: const Duration(seconds: 6),
+          ),
+        );
+        return;
+      }
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.psychology, color: Colors.deepPurple),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Análise IA da Evolução',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: SelectableText(
+                respostaIA,
+                style: const TextStyle(fontSize: 13, height: 1.35),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'Fechar',
+                style: TextStyle(color: Colors.black),
+              ),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao analisar evolução com IA: $e'),
+          backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 6),
+        ),
+      );
+    }
+  }
+
   void _matricularNovoAluno() async {
     if (_novoNomeController.text.isEmpty ||
         _novoEmailController.text.isEmpty ||
@@ -1579,6 +2875,192 @@ class _HomeScreenState extends State<HomeScreen> {
       Navigator.pop(context);
       print("Erro ao aplicar plano padrão: $e");
     }
+  }
+
+  // =========================================================================
+  // TREINO PADRÃO DINÂMICO (Firestore)
+  // =========================================================================
+
+  void _abrirPopupAplicarTreinoPadrao() {
+    if (_alunoSelecionadoId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecione um aluno antes de aplicar o treino padrão.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    String nivel  = 'Iniciante';
+    String perfil = 'Feminino';
+
+    const niveis  = ['Iniciante', 'Intermediário', 'Avançado'];
+    const perfis  = ['Feminino', 'Masculino'];
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setPopupState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.fitness_center, color: Colors.deepPurple),
+              SizedBox(width: 8),
+              Text('Aplicar Treino Padrão', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Escolha o nível e perfil para aplicar na ficha do aluno:',
+                style: TextStyle(fontSize: 13, color: Colors.black87),
+              ),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                value: nivel,
+                decoration: const InputDecoration(
+                  labelText: 'Nível',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                items: niveis.map((n) => DropdownMenuItem(value: n, child: Text(n))).toList(),
+                onChanged: (v) => setPopupState(() => nivel = v!),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: perfil,
+                decoration: const InputDecoration(
+                  labelText: 'Perfil',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                items: perfis.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                onChanged: (v) => setPopupState(() => perfil = v!),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Modelo: ${WorkoutService.gerarModeloId(nivel, perfil)}',
+                style: const TextStyle(fontSize: 11, color: Colors.blueGrey),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar', style: TextStyle(color: Colors.black)),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                foregroundColor: Colors.white,
+              ),
+              icon: const Icon(Icons.play_circle_outline, size: 18),
+              label: const Text('Aplicar'),
+              onPressed: () {
+                Navigator.pop(context);
+                _aplicarTreinoPadraoFirestore(nivel, perfil);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _aplicarTreinoPadraoFirestore(String nivel, String perfil) async {
+    if (_alunoSelecionadoId == null) return;
+
+    final modeloId = WorkoutService.gerarModeloId(nivel, perfil);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.deepPurple)),
+    );
+
+    try {
+      QuerySnapshot snap;
+      try {
+        snap = await FirebaseFirestore.instance
+            .collection('treinos_padrao')
+            .doc(modeloId)
+            .collection('exercicios')
+            .orderBy('criadoEm')
+            .get();
+      } on FirebaseException catch (e) {
+        if (!mounted) return;
+        Navigator.pop(context);
+        final msg = e.code == 'permission-denied'
+            ? 'Sem permissão para acessar os treinos padrão. Verifique as regras do Firestore.'
+            : 'Erro ao acessar treinos padrão: ${e.message}';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), backgroundColor: Colors.redAccent, duration: const Duration(seconds: 6)),
+        );
+        return;
+      }
+
+      if (snap.docs.isEmpty) {
+        if (!mounted) return;
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Modelo "$nivel / $perfil" ainda não foi configurado.\n'
+              'Acesse "Editar Modelos" para cadastrar os exercícios.',
+            ),
+            backgroundColor: Colors.orange[700],
+            duration: const Duration(seconds: 6),
+          ),
+        );
+        return;
+      }
+
+      for (final doc in snap.docs) {
+        final dados = doc.data() as Map<String, dynamic>;
+        await _workoutService.salvarTreino(
+          alunoId:          _alunoSelecionadoId!,
+          ficha:            dados['ficha']?.toString()    ?? 'A',
+          grupoMuscular:    dados['grupo']?.toString()    ?? 'Peito',
+          nomeExercicios:   dados['exercicio']?.toString() ?? '',
+          seriesRepeticoes: dados['series']?.toString()   ?? '3x12',
+          carga:            dados['carga']?.toString()    ?? '---',
+          videoUrl:         dados['videoUrl']?.toString() ?? '---',
+        );
+      }
+
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Treino Padrão ($nivel / $perfil) aplicado com sucesso! 🏋️‍♂️',
+          ),
+          backgroundColor: Colors.green[800],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao aplicar treino padrão: $e'),
+          backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 6),
+        ),
+      );
+    }
+  }
+
+  void _abrirGerenciadorTreinosPadrao() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TreinosPadraoPage(eAdmin: _eAdminGeral),
+      ),
+    );
   }
 
   void _abrirScannerDeRefeicao() {
@@ -2251,6 +3733,468 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _mostrarPopupCompraAvaliacaoFisicaIA({required bool combo}) async {
+    if (_alunoSelecionadoId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Aluno não identificado. Selecione um aluno ou faça login novamente.',
+          ),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: Colors.deepPurple),
+      ),
+    );
+
+    try {
+      final callable = FirebaseFunctions.instanceFor(
+        region: 'southamerica-east1',
+      ).httpsCallable('criarPixAvaliacaoFisicaPro');
+
+      final result = await callable.call({
+        'tipoPlano': combo ? 'combo_performance_ia' : 'avaliacao_fisica_pro',
+      });
+
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      final Map<String, dynamic> dados = Map<String, dynamic>.from(
+        result.data as Map,
+      );
+      final String pagamentoId = dados['pagamentoId'].toString();
+      final String qrCode = dados['qrCode'].toString();
+      final DateTime expiraEm = DateTime.parse(dados['expiraEm'].toString());
+      final String plano =
+          dados['plano']?.toString() ??
+          (combo ? 'Combo Performance IA' : 'Evolução Física PRO');
+      final double valor =
+          double.tryParse(dados['valor'].toString()) ?? (combo ? 29.90 : 19.90);
+
+      _abrirPopupPixDinamicoAvaliacaoFisica(
+        pagamentoId: pagamentoId,
+        qrCode: qrCode,
+        expiraEm: expiraEm,
+        combo: combo,
+        plano: plano,
+        valor: valor,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao gerar PIX da Evolução Física PRO: $e'),
+          backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 6),
+        ),
+      );
+    }
+  }
+
+  void _abrirPopupPixDinamicoAvaliacaoFisica({
+    required String pagamentoId,
+    required String qrCode,
+    required DateTime expiraEm,
+    required bool combo,
+    required String plano,
+    required double valor,
+  }) {
+    Timer? timer;
+    bool pagamentoAprovado = false;
+    bool consultando = false;
+    int segundosRestantes = expiraEm.difference(DateTime.now()).inSeconds;
+
+    if (segundosRestantes < 0) segundosRestantes = 0;
+
+    Future<void> liberarLocalmente() async {
+      if (_alunoSelecionadoId == null) return;
+      final agora = DateTime.now();
+      final Map<String, dynamic> dadosLiberacao = {
+        'avaliacaoFisicaStatusAssinatura': 'Ativo',
+        'planoAvaliacaoFisica': plano,
+        'valorAvaliacaoFisica': valor,
+        'dataInicioAvaliacaoFisica': FieldValue.serverTimestamp(),
+        'dataFimAvaliacaoFisica': Timestamp.fromDate(
+          agora.add(const Duration(days: 30)),
+        ),
+        'avaliacaoFisicaIAMesReferencia': _mesReferenciaAtualAvaliacaoFisica(),
+        'avaliacaoFisicaIAUsosMes': 0,
+        'pagamentoAvaliacaoFisicaAtualId': pagamentoId,
+        'atualizadoEm': FieldValue.serverTimestamp(),
+      };
+
+      if (combo) {
+        dadosLiberacao.addAll({
+          'iaStatusAssinatura': 'Ativo',
+          'dataInicioIA': FieldValue.serverTimestamp(),
+          'dataFimIA': Timestamp.fromDate(agora.add(const Duration(days: 30))),
+          'pagamentoScannerAtualId': pagamentoId,
+        });
+      }
+
+      await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(_alunoSelecionadoId)
+          .set(dadosLiberacao, SetOptions(merge: true));
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            timer ??= Timer.periodic(const Duration(seconds: 1), (t) async {
+              final restante = expiraEm.difference(DateTime.now()).inSeconds;
+
+              if (!mounted) {
+                t.cancel();
+                return;
+              }
+
+              setModalState(() {
+                segundosRestantes = restante > 0 ? restante : 0;
+              });
+
+              if (segundosRestantes <= 0 && !pagamentoAprovado) {
+                t.cancel();
+                setModalState(() => consultando = false);
+                return;
+              }
+
+              if (segundosRestantes % 5 == 0 &&
+                  !consultando &&
+                  !pagamentoAprovado) {
+                consultando = true;
+                final aprovado = await _consultarStatusPixAvaliacaoFisicaPro(
+                  pagamentoId,
+                );
+                consultando = false;
+
+                if (aprovado && mounted) {
+                  pagamentoAprovado = true;
+                  t.cancel();
+                  await liberarLocalmente();
+                  if (mounted) setState(() {});
+                  Navigator.pop(dialogContext);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('$plano liberado por 30 dias!'),
+                      backgroundColor: Colors.green,
+                      duration: const Duration(seconds: 6),
+                    ),
+                  );
+                }
+              }
+            });
+
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: SizedBox(
+                width: 390,
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.deepPurple,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            children: [
+                              const Icon(
+                                Icons.assignment_ind,
+                                color: Colors.white,
+                                size: 34,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                plano,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        const Text(
+                          'Pague o PIX para liberar automaticamente',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'R\$ ${valor.toStringAsFixed(2).replaceAll('.', ',')} / mês',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.deepPurple,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: segundosRestantes > 60
+                                ? Colors.green.withOpacity(0.12)
+                                : Colors.orange.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: segundosRestantes > 60
+                                  ? Colors.green
+                                  : Colors.orange,
+                            ),
+                          ),
+                          child: Text(
+                            segundosRestantes > 0
+                                ? 'Tempo restante: ${_formatarTempoPix(segundosRestantes)}'
+                                : 'Tempo expirado',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: segundosRestantes > 60
+                                  ? Colors.green[800]
+                                  : Colors.orange[900],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          width: 230,
+                          height: 230,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: QrImageView(
+                            data: qrCode,
+                            version: QrVersions.auto,
+                            size: 200,
+                            backgroundColor: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        const Text(
+                          'PIX Copia e Cola',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          constraints: const BoxConstraints(
+                            minHeight: 70,
+                            maxHeight: 125,
+                          ),
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: SingleChildScrollView(
+                            child: SelectableText(
+                              qrCode,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 44,
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.deepPurple,
+                              side: const BorderSide(color: Colors.deepPurple),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            onPressed: () async {
+                              await Clipboard.setData(
+                                ClipboardData(text: qrCode),
+                              );
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Código PIX copiado!'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.copy),
+                            label: const Text(
+                              'Copiar código PIX',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.10),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.blue.withOpacity(0.35),
+                            ),
+                          ),
+                          child: Text(
+                            consultando
+                                ? 'Verificando pagamento...'
+                                : 'Após pagar, aguarde. A liberação será automática quando o Mercado Pago confirmar.',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              height: 1.35,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SizedBox(
+                                height: 44,
+                                child: TextButton(
+                                  onPressed: () {
+                                    timer?.cancel();
+                                    Navigator.pop(dialogContext);
+                                  },
+                                  child: const Text(
+                                    'Fechar',
+                                    style: TextStyle(color: Colors.black87),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: SizedBox(
+                                height: 44,
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.deepPurple,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  icon: const Icon(Icons.refresh, size: 18),
+                                  label: const Text(
+                                    'Verificar',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  onPressed: () async {
+                                    final aprovado =
+                                        await _consultarStatusPixAvaliacaoFisicaPro(
+                                          pagamentoId,
+                                        );
+                                    if (aprovado && mounted) {
+                                      pagamentoAprovado = true;
+                                      timer?.cancel();
+                                      await liberarLocalmente();
+                                      if (mounted) setState(() {});
+                                      Navigator.pop(dialogContext);
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            '$plano liberado por 30 dias!',
+                                          ),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      );
+                                    } else {
+                                      if (!mounted) return;
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Pagamento ainda não confirmado.',
+                                          ),
+                                          backgroundColor: Colors.orange,
+                                        ),
+                                      );
+                                    }
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ).then((_) => timer?.cancel());
+  }
+
+  Future<bool> _consultarStatusPixAvaliacaoFisicaPro(String pagamentoId) async {
+    try {
+      final callable = FirebaseFunctions.instanceFor(
+        region: 'southamerica-east1',
+      ).httpsCallable('consultarStatusPixAvaliacaoFisicaPro');
+
+      final result = await callable.call({'pagamentoId': pagamentoId});
+      final Map<String, dynamic> dados = Map<String, dynamic>.from(
+        result.data as Map,
+      );
+      return dados['aprovado'] == true;
+    } catch (e) {
+      print('Erro ao consultar status do PIX da Avaliação Física PRO: $e');
+      return false;
+    }
+  }
+
   String _formatarTempoPix(int segundos) {
     final minutos = segundos ~/ 60;
     final restoSegundos = segundos % 60;
@@ -2870,6 +4814,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       TextField(
                         controller: _profNomeController,
+                        onChanged: (_) => setState(() {}),
                         style: const TextStyle(color: Colors.white),
                         decoration: const InputDecoration(
                           labelText: 'Nome do Professor',
@@ -2885,6 +4830,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 8),
                       TextField(
                         controller: _profEmailController,
+                        onChanged: (_) => setState(() {}),
                         style: const TextStyle(color: Colors.white),
                         decoration: const InputDecoration(
                           labelText: 'E-mail de Acesso',
@@ -2900,6 +4846,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 8),
                       TextField(
                         controller: _profSenhaController,
+                        onChanged: (_) => setState(() {}),
                         obscureText: true,
                         style: const TextStyle(color: Colors.white),
                         decoration: const InputDecoration(
@@ -2914,22 +4861,150 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      ElevatedButton(
+                      ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.amber,
                           foregroundColor: Colors.black,
                           minimumSize: const Size.fromHeight(42),
                         ),
-                        onPressed:
-                            _profNomeController.text.isEmpty ||
-                                _profEmailController.text.isEmpty ||
-                                _profSenhaController.text.isEmpty
-                            ? null
-                            : _cadastrarNovoProfessor,
-                        child: const Text(
-                          'Autorizar e Cadastrar Professor',
+                        onPressed: _cadastrarNovoProfessor,
+                        icon: const Icon(Icons.save),
+                        label: const Text(
+                          'Salvar / Cadastrar Professor',
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Professores cadastrados',
+                          style: TextStyle(
+                            color: Colors.amber,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('usuarios')
+                            .where('cargo', isEqualTo: 'professor')
+                            .snapshots(),
+                        builder: (context, snapProfessores) {
+                          if (!snapProfessores.hasData) {
+                            return const Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: LinearProgressIndicator(
+                                color: Colors.amber,
+                              ),
+                            );
+                          }
+
+                          final professores = snapProfessores.data!.docs;
+
+                          if (professores.isEmpty) {
+                            return Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.white24),
+                              ),
+                              child: const Text(
+                                'Nenhum professor cadastrado ainda.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            );
+                          }
+
+                          return ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: professores.length,
+                            itemBuilder: (context, index) {
+                              final doc = professores[index];
+                              final dados = doc.data() as Map<String, dynamic>;
+                              final nome = (dados['nome'] ?? 'Professor')
+                                  .toString();
+                              final email = (dados['email'] ?? '---')
+                                  .toString();
+
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: Colors.white24),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const CircleAvatar(
+                                      backgroundColor: Colors.amber,
+                                      child: Icon(
+                                        Icons.person,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            nome,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            email,
+                                            style: const TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Editar professor',
+                                      icon: const Icon(
+                                        Icons.edit,
+                                        color: Colors.amber,
+                                      ),
+                                      onPressed: () =>
+                                          _abrirEdicaoProfessor(doc.id, dados),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Excluir professor',
+                                      icon: const Icon(
+                                        Icons.delete,
+                                        color: Colors.redAccent,
+                                      ),
+                                      onPressed: () =>
+                                          _confirmarExclusaoProfessor(
+                                            doc.id,
+                                            nome,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -3173,6 +5248,33 @@ class _HomeScreenState extends State<HomeScreen> {
         StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance.collection('usuarios').snapshots(),
           builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              final erro = snapshot.error.toString();
+              final msgErro = erro.contains('permission-denied') || erro.contains('PERMISSION_DENIED')
+                  ? 'Sem permissão para listar alunos.\nVerifique as Regras do Firestore.'
+                  : 'Erro ao carregar alunos: $erro';
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.red.shade300),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.red),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        msgErro,
+                        style: const TextStyle(color: Colors.red, fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
             if (!snapshot.hasData)
               return const Center(
                 child: CircularProgressIndicator(color: Colors.amber),
@@ -3181,8 +5283,10 @@ class _HomeScreenState extends State<HomeScreen> {
             var alunos = snapshot.data!.docs.where((doc) {
               var dados = doc.data() as Map<String, dynamic>;
               String nome = (dados['nome'] ?? '').toString().toLowerCase();
-              String cargo = dados['cargo'] ?? 'aluno';
-              return nome.contains(_filtroBuscaAlunos) && cargo == 'aluno';
+              String cargo = (dados['cargo'] ?? '').toString().toLowerCase().trim();
+              final bool legacyAluno = dados['cargo'] == null && dados['eProfessor'] != true;
+              final bool ehAluno = cargo == 'aluno' || legacyAluno;
+              return nome.contains(_filtroBuscaAlunos) && ehAluno;
             }).toList();
 
             if (alunos.isEmpty) return const Text('Nenhum aluno encontrado.');
@@ -3360,14 +5464,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           const Row(
                             children: [
-                              Icon(
-                                Icons.copy,
-                                color: Colors.blueGrey,
-                                size: 18,
-                              ),
+                              Icon(Icons.fitness_center, color: Colors.deepPurple, size: 18),
                               SizedBox(width: 6),
                               Text(
-                                'Injetar Modelo de Treino Padrão',
+                                'Treino Padrão',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
@@ -3380,69 +5480,42 @@ class _HomeScreenState extends State<HomeScreen> {
                           Row(
                             children: [
                               Expanded(
-                                child: ElevatedButton(
+                                child: ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green[600],
+                                    backgroundColor: Colors.deepPurple,
                                     foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 8,
-                                    ),
+                                    padding: const EdgeInsets.symmetric(vertical: 10),
                                   ),
-                                  onPressed: () =>
-                                      _injetarPlanoTreinoPadrao('Iniciante'),
-                                  child: const Text(
-                                    'Iniciante 🟢',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                  icon: const Icon(Icons.play_circle_outline, size: 16),
+                                  label: const Text(
+                                    'Aplicar Treino Padrão',
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                                   ),
+                                  onPressed: _abrirPopupAplicarTreinoPadrao,
                                 ),
                               ),
-                              const SizedBox(width: 6),
+                              const SizedBox(width: 8),
                               Expanded(
-                                child: ElevatedButton(
+                                child: ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.orange[700],
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 8,
-                                    ),
+                                    backgroundColor: Colors.black87,
+                                    foregroundColor: Colors.amber,
+                                    padding: const EdgeInsets.symmetric(vertical: 10),
                                   ),
-                                  onPressed: () => _injetarPlanoTreinoPadrao(
-                                    'Intermediário',
+                                  icon: const Icon(Icons.edit_note, size: 16),
+                                  label: const Text(
+                                    'Editar Modelos',
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                                   ),
-                                  child: const Text(
-                                    'Intermediário 🟡',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red[700],
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 8,
-                                    ),
-                                  ),
-                                  onPressed: () =>
-                                      _injetarPlanoTreinoPadrao('Avançado'),
-                                  child: const Text(
-                                    'Avançado 🔴',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
+                                  onPressed: _abrirGerenciadorTreinosPadrao,
                                 ),
                               ),
                             ],
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Selecione nível e perfil na tela de aplicação.\nUse "Editar Modelos" para criar ou customizar.',
+                            style: TextStyle(fontSize: 11, color: Colors.blueGrey),
                           ),
                         ],
                       ),
@@ -3587,15 +5660,42 @@ class _HomeScreenState extends State<HomeScreen> {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('usuarios').snapshots(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          final erro = snapshot.error.toString();
+          final msg = erro.contains('permission-denied') || erro.contains('PERMISSION_DENIED')
+              ? 'Sem permissão para acessar dados financeiros.\nVerifique as Regras do Firestore.'
+              : 'Erro ao carregar financeiro: $erro';
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.red.shade300),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(msg, style: const TextStyle(color: Colors.red))),
+                ],
+              ),
+            ),
+          );
+        }
+
         double faturamentoTotalPago = 0.0;
         double faturamentoTotalPendente = 0.0;
         double faturamentoTotalAtrasado = 0.0;
 
         double receitaPlanosArrecadada = 0.0;
         double receitaScannerIAArrecadada = 0.0;
+        double receitaAvaliacaoFisicaIAArrecadada = 0.0;
 
         List<QueryDocumentSnapshot> filaAprovacaoIA = [];
         List<Map<String, dynamic>> alunosAtivosScannerIA = [];
+        List<Map<String, dynamic>> alunosAtivosAvaliacaoFisicaIA = [];
         List<Map<String, dynamic>> tabelaDeReceitasDetalhadas = [];
 
         if (snapshot.hasData && snapshot.data != null) {
@@ -3634,6 +5734,32 @@ class _HomeScreenState extends State<HomeScreen> {
                 });
               }
 
+              final bool avaliacaoFisicaAtiva = _avaliacaoFisicaProAtiva(d);
+              final String planoAvaliacaoFisica =
+                  (d['planoAvaliacaoFisica'] ?? 'Evolução Física PRO')
+                      .toString();
+              final double valorAvaliacaoFisica =
+                  double.tryParse(
+                    (d['valorAvaliacaoFisica'] ??
+                            (planoAvaliacaoFisica == 'Combo Performance IA'
+                                ? 29.90
+                                : 19.90))
+                        .toString(),
+                  ) ??
+                  (planoAvaliacaoFisica == 'Combo Performance IA'
+                      ? 29.90
+                      : 19.90);
+
+              if (avaliacaoFisicaAtiva) {
+                alunosAtivosAvaliacaoFisicaIA.add({
+                  'nome': nomeAluno,
+                  'celular': celularAluno,
+                  'statusPagamento': statusPagamento,
+                  'plano': planoAvaliacaoFisica,
+                  'valor': valorAvaliacaoFisica,
+                });
+              }
+
               double valorPlano = 0.0;
               if (d['valorMensalidade'] != null) {
                 valorPlano =
@@ -3667,7 +5793,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 });
               }
 
-              if (iaStatus == 'Ativo') {
+              if (iaStatus == 'Ativo' &&
+                  !(avaliacaoFisicaAtiva &&
+                      planoAvaliacaoFisica == 'Combo Performance IA')) {
                 receitaScannerIAArrecadada += 20.0;
 
                 if (statusPagamento == 'Pago') {
@@ -3684,6 +5812,26 @@ class _HomeScreenState extends State<HomeScreen> {
                   'valor': 20.0,
                   'status': statusPagamento,
                   'cor': Colors.purple,
+                });
+              }
+
+              if (avaliacaoFisicaAtiva) {
+                receitaAvaliacaoFisicaIAArrecadada += valorAvaliacaoFisica;
+
+                if (statusPagamento == 'Pago') {
+                  faturamentoTotalPago += valorAvaliacaoFisica;
+                } else if (statusPagamento == 'Atrasado') {
+                  faturamentoTotalAtrasado += valorAvaliacaoFisica;
+                } else {
+                  faturamentoTotalPendente += valorAvaliacaoFisica;
+                }
+
+                tabelaDeReceitasDetalhadas.add({
+                  'aluno': "$nomeAluno ($informacaoDataVencimento)",
+                  'tipo': planoAvaliacaoFisica,
+                  'valor': valorAvaliacaoFisica,
+                  'status': statusPagamento,
+                  'cor': Colors.deepPurple,
                 });
               }
             }
@@ -3806,6 +5954,27 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          '📊 Avaliação Física / Performance IA:',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.deepPurple,
+                          ),
+                        ),
+                        Text(
+                          'R\$ ${receitaAvaliacaoFisicaIAArrecadada.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.deepPurple,
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -3878,6 +6047,72 @@ class _HomeScreenState extends State<HomeScreen> {
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
                               ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            Card(
+              color: Colors.white,
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: Colors.deepPurple.withOpacity(0.3)),
+              ),
+              child: ExpansionTile(
+                initiallyExpanded: false,
+                leading: const Icon(
+                  Icons.assignment_ind,
+                  color: Colors.deepPurple,
+                ),
+                title: Text(
+                  'Alunos Ativos na Evolução Física / Performance IA (${alunosAtivosAvaliacaoFisicaIA.length})',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Colors.deepPurple,
+                  ),
+                ),
+                children: [
+                  if (alunosAtivosAvaliacaoFisicaIA.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Text(
+                        'Nenhum aluno com Evolução Física PRO ou Combo ativo no momento.',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    )
+                  else
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: alunosAtivosAvaliacaoFisicaIA.length,
+                      itemBuilder: (context, idx) {
+                        var alunoIA = alunosAtivosAvaliacaoFisicaIA[idx];
+                        return ListTile(
+                          dense: true,
+                          leading: const Icon(
+                            Icons.check_circle,
+                            color: Colors.deepPurple,
+                            size: 18,
+                          ),
+                          title: Text(
+                            alunoIA['nome'],
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: Text(
+                            '${alunoIA['plano']} • WhatsApp: ${alunoIA['celular']}',
+                          ),
+                          trailing: Text(
+                            'R\$ ${(alunoIA['valor'] as double).toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.deepPurple,
                             ),
                           ),
                         );
@@ -4096,6 +6331,409 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _construirCardAvaliacaoFisicaAluno() {
+    if (_alunoSelecionadoId == null) return const SizedBox();
+
+    String formatarNumero(dynamic valor, String unidade, {int casas = 1}) {
+      final numero = double.tryParse((valor ?? 0).toString()) ?? 0.0;
+      if (numero <= 0) return '---';
+      final valorTexto = numero.toStringAsFixed(casas);
+      return unidade.trim().isEmpty ? valorTexto : '$valorTexto $unidade';
+    }
+
+    String formatarDiferenca(dynamic atual, dynamic inicial, String unidade) {
+      final valorAtual = double.tryParse((atual ?? 0).toString()) ?? 0.0;
+      final valorInicial = double.tryParse((inicial ?? 0).toString()) ?? 0.0;
+
+      if (valorAtual <= 0 || valorInicial <= 0) return '---';
+
+      final diferenca = valorAtual - valorInicial;
+      final sinal = diferenca > 0 ? '+' : '';
+      return '$sinal${diferenca.toStringAsFixed(1)} $unidade';
+    }
+
+    Widget cardIndicador({
+      required IconData icon,
+      required String titulo,
+      required String valor,
+      required String diferenca,
+      required Color cor,
+    }) {
+      return Expanded(
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: cor.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: cor.withOpacity(0.25)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: cor, size: 20),
+              const SizedBox(height: 6),
+              Text(
+                titulo,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                valor,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: cor,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Evolução: $diferenca',
+                style: TextStyle(fontSize: 10, color: Colors.grey[700]),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(_alunoSelecionadoId)
+          .snapshots(),
+      builder: (context, snapAluno) {
+        if (!snapAluno.hasData || !snapAluno.data!.exists)
+          return const SizedBox();
+
+        final dadosAluno = snapAluno.data!.data() as Map<String, dynamic>;
+        final proAtivo = _avaliacaoFisicaProAtiva(dadosAluno);
+        final plano =
+            (dadosAluno['planoAvaliacaoFisica'] ?? 'Evolução Física PRO')
+                .toString();
+        final limiteIA = _limiteMensalAnalisesAvaliacaoFisica(dadosAluno);
+        final usosIA = _usosAnaliseAvaliacaoFisicaNoMes(dadosAluno);
+
+        if (!proAtivo) {
+          return _cardBloqueioAvaliacaoFisicaPro(professor: false);
+        }
+
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('usuarios')
+              .doc(_alunoSelecionadoId)
+              .collection('avaliacoes_fisicas')
+              .orderBy('dataAvaliacao', descending: true)
+              .snapshots(),
+          builder: (context, snapAvaliacoes) {
+            if (!snapAvaliacoes.hasData) {
+              return Card(
+                color: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.all(14),
+                  child: LinearProgressIndicator(color: Colors.deepPurple),
+                ),
+              );
+            }
+
+            final avaliacoes = snapAvaliacoes.data!.docs;
+
+            if (avaliacoes.isEmpty) {
+              return Card(
+                color: Colors.white,
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: Colors.deepPurple.withOpacity(0.12),
+                        child: const Icon(
+                          Icons.monitor_weight,
+                          color: Colors.deepPurple,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Minha Evolução Física PRO',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              'Plano ativo: $plano | IA: $usosIA/$limiteIA análises no mês.',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.green[700],
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            const Text(
+                              'Ainda não há avaliação física registrada pelo professor.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            final ultima = avaliacoes.first.data() as Map<String, dynamic>;
+            final primeira = avaliacoes.last.data() as Map<String, dynamic>;
+            final dataUltima = _formatarDataAvaliacao(ultima['dataAvaliacao']);
+
+            return Card(
+              color: Colors.white,
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          backgroundColor: Colors.deepPurple.withOpacity(0.12),
+                          child: const Icon(
+                            Icons.insights,
+                            color: Colors.deepPurple,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Minha Evolução Física PRO',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                'Última avaliação: $dataUltima',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                '$plano | IA: $usosIA/$limiteIA no mês',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.green[700],
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        cardIndicador(
+                          icon: Icons.monitor_weight,
+                          titulo: 'Peso atual',
+                          valor: formatarNumero(ultima['peso'], 'kg'),
+                          diferenca: formatarDiferenca(
+                            ultima['peso'],
+                            primeira['peso'],
+                            'kg',
+                          ),
+                          cor: Colors.deepPurple,
+                        ),
+                        const SizedBox(width: 8),
+                        cardIndicador(
+                          icon: Icons.straighten,
+                          titulo: 'Cintura',
+                          valor: formatarNumero(ultima['cintura'], 'cm'),
+                          diferenca: formatarDiferenca(
+                            ultima['cintura'],
+                            primeira['cintura'],
+                            'cm',
+                          ),
+                          cor: Colors.green,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        cardIndicador(
+                          icon: Icons.percent,
+                          titulo: 'Gordura',
+                          valor: formatarNumero(ultima['gorduraCorporal'], '%'),
+                          diferenca: formatarDiferenca(
+                            ultima['gorduraCorporal'],
+                            primeira['gorduraCorporal'],
+                            '%',
+                          ),
+                          cor: Colors.orange,
+                        ),
+                        const SizedBox(width: 8),
+                        cardIndicador(
+                          icon: Icons.accessibility_new,
+                          titulo: 'Massa magra',
+                          valor: formatarNumero(ultima['massaMagra'], 'kg'),
+                          diferenca: formatarDiferenca(
+                            ultima['massaMagra'],
+                            primeira['massaMagra'],
+                            'kg',
+                          ),
+                          cor: Colors.blue,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _linhaResumoAvaliacao(
+                            'IMC',
+                            formatarNumero(ultima['imc'], '', casas: 1),
+                          ),
+                          _linhaResumoAvaliacao(
+                            'Abdômen',
+                            formatarNumero(ultima['abdomen'], 'cm'),
+                          ),
+                          _linhaResumoAvaliacao(
+                            'Quadril',
+                            formatarNumero(ultima['quadril'], 'cm'),
+                          ),
+                          _linhaResumoAvaliacao(
+                            'Peitoral',
+                            formatarNumero(ultima['peitoral'], 'cm'),
+                          ),
+                          if ((ultima['observacoes'] ?? '')
+                              .toString()
+                              .isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(
+                                'Observações: ${ultima['observacoes']}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      childrenPadding: EdgeInsets.zero,
+                      title: const Text(
+                        'Ver histórico completo',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      children: avaliacoes.map((doc) {
+                        final dados = doc.data() as Map<String, dynamic>;
+                        final data = _formatarDataAvaliacao(
+                          dados['dataAvaliacao'],
+                        );
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                data,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.deepPurple,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 4,
+                                children: [
+                                  Text(
+                                    'Peso: ${formatarNumero(dados['peso'], 'kg')}',
+                                  ),
+                                  Text(
+                                    'IMC: ${formatarNumero(dados['imc'], '', casas: 1)}',
+                                  ),
+                                  Text(
+                                    'Gordura: ${formatarNumero(dados['gorduraCorporal'], '%')}',
+                                  ),
+                                  Text(
+                                    'Cintura: ${formatarNumero(dados['cintura'], 'cm')}',
+                                  ),
+                                  Text(
+                                    'Abdômen: ${formatarNumero(dados['abdomen'], 'cm')}',
+                                  ),
+                                  Text(
+                                    'Quadril: ${formatarNumero(dados['quadril'], 'cm')}',
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -4390,6 +7028,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         _construirAbaTreinos(),
                         if (_alunoSelecionadoId != null) ...[
                           const SizedBox(height: 16),
+                          _construirCardAvaliacaoFisicaProfessor(),
+                          const SizedBox(height: 16),
                           _construirListaDeTreinosEfetivos(),
                         ],
                       ],
@@ -4417,6 +7057,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       );
                     },
                   ),
+
+                  _construirCardAvaliacaoFisicaAluno(),
+                  const SizedBox(height: 12),
 
                   StreamBuilder<DocumentSnapshot>(
                     stream: FirebaseFirestore.instance
@@ -4794,6 +7437,391 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // =========================================================================
+  // COMPATIBILIDADE CAMINHO ANTIGO × NOVO
+  // =========================================================================
+
+  Future<void> _migrarTreinosAntigos(String docIdAntigo) async {
+    if (_alunoSelecionadoId == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final nav = Navigator.of(context);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.deepPurple)),
+    );
+
+    try {
+      final migrados = await _workoutService.migrarTreinosAntigos(
+        alunoId: _alunoSelecionadoId!,
+        docIdAntigo: docIdAntigo,
+      );
+      setState(() {
+        _futureTreinosAntigos = null;
+        _alunoIdCacheTreinosAntigos = null;
+      });
+      if (!mounted) return;
+      nav.pop();
+      messenger.showSnackBar(SnackBar(
+        content: Text(
+          migrados > 0
+              ? 'Migração concluída! $migrados exercício${migrados != 1 ? 's' : ''} migrado${migrados != 1 ? 's' : ''}.'
+              : 'Migração concluída. Todos os exercícios já existiam na estrutura atual.',
+        ),
+        backgroundColor: migrados > 0 ? Colors.green[800] : Colors.orange[700],
+        duration: const Duration(seconds: 5),
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      nav.pop();
+      messenger.showSnackBar(SnackBar(
+        content: Text('Erro na migração: $e'),
+        backgroundColor: Colors.redAccent,
+        duration: const Duration(seconds: 6),
+      ));
+    }
+  }
+
+  Widget _buildBannerFonteTreinos(String mensagem, Color cor, IconData icone) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: cor.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cor.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          Icon(icone, color: cor, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              mensagem,
+              style: TextStyle(color: cor, fontSize: 12, fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErroBannerTreinos(String erro) {
+    final msg = erro.contains('permission-denied') || erro.contains('PERMISSION_DENIED')
+        ? 'Sem permissão para acessar os treinos deste aluno.\nVerifique as Regras do Firestore.'
+        : 'Erro ao carregar treinos: $erro';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.red[50],
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.red.shade300),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red),
+            const SizedBox(width: 8),
+            Expanded(child: Text(msg, style: const TextStyle(color: Colors.red, fontSize: 13))),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFichaTabBar(List<String> fichas) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              _eProfessor ? 'Ficha Ativa:' : 'Escolha a Série de Hoje:',
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+            ),
+            if (_eProfessor)
+              Row(
+                children: [
+                  TextButton.icon(
+                    icon: const Icon(Icons.add, size: 18, color: Colors.blueAccent),
+                    label: const Text(
+                      'Nova Ficha',
+                      style: TextStyle(color: Colors.blueAccent, fontSize: 13, fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () {
+                      final prox = fichas.last.codeUnitAt(0) + 1;
+                      final proximaLetra = String.fromCharCode(prox);
+                      setState(() => _fichaSelecionadaAluno = proximaLetra);
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Ficha $proximaLetra liberada! Agora basta vincular exercícios a ela. 🏋️‍♂️'),
+                        backgroundColor: Colors.blue,
+                      ));
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_sweep, color: Colors.red),
+                    onPressed: _limparFichaCompleta,
+                  ),
+                ],
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: fichas.map((letraFicha) {
+              final estaSelecionada = _fichaSelecionadaAluno == letraFicha;
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: estaSelecionada ? Colors.black : Colors.white,
+                    foregroundColor: estaSelecionada ? Colors.amber : Colors.black87,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                  ),
+                  onPressed: () => setState(() => _fichaSelecionadaAluno = letraFicha),
+                  child: Text('TREINO $letraFicha'),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExercicioCard(Map<String, dynamic> dadosTratados, {String? treinoId}) {
+    final nomeDoExercicioItem = (dadosTratados['exercicios'] ?? 'Exercício').toString();
+    final somenteLeitura = treinoId == null;
+
+    return Card(
+      color: Colors.white,
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: IconButton(
+                icon: const Icon(Icons.play_circle_fill, color: Colors.amber, size: 36),
+                onPressed: () => _assistirVideo(dadosTratados['videoUrl']),
+              ),
+            ),
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  if (!_eProfessor) _mostrarDetalhesExercicioAluno(dadosTratados);
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        nomeDoExercicioItem,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${dadosTratados['grupo'] ?? ''} | Reps: ${dadosTratados['series'] ?? ''} | Base: ${dadosTratados['carga'] ?? ''}',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                      ),
+                      if (somenteLeitura)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 2),
+                          child: Text(
+                            'Somente leitura — use "Migrar treinos antigos" para editar',
+                            style: TextStyle(fontSize: 10, color: Colors.orange),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.history, color: Colors.blueGrey, size: 22),
+                  tooltip: 'Ver Evolução de Força',
+                  onPressed: () => _abrirHistoricoDeCargasDoExercicio(nomeDoExercicioItem),
+                ),
+                if (_eProfessor && !somenteLeitura) ...[
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: Colors.orange, size: 22),
+                    onPressed: () => _abrirConfiguracaoExercicio(
+                      dadosTratados['grupo'] ?? '',
+                      nomeDoExercicioItem,
+                      treinoId: treinoId,
+                      seriesAtual: dadosTratados['series'],
+                      cargaAtual: dadosTratados['carga'],
+                      videoUrlAtual: dadosTratados['videoUrl'],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red, size: 22),
+                    onPressed: () => _workoutService.excluirTreino(_alunoSelecionadoId!, treinoId),
+                  ),
+                ] else if (!_eProfessor) ...[
+                  IconButton(
+                    icon: const Icon(Icons.scale, color: Colors.green, size: 22),
+                    tooltip: 'Anotar Peso de Hoje',
+                    onPressed: () => _abrirPopupAnotarCarga(nomeDoExercicioItem),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.play_circle_outline, color: Colors.amber, size: 24),
+                    tooltip: 'Iniciar Descanso',
+                    onPressed: () => _iniciarCronometroDescanso(nomeDoExercicioItem),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFichasComStreamNovo(List<QueryDocumentSnapshot> todosOsTreinos) {
+    final letras = <String>{'A', 'B', 'C', _fichaSelecionadaAluno};
+    for (final doc in todosOsTreinos) {
+      final dados = doc.data() as Map<String, dynamic>;
+      if (dados.containsKey('ficha')) {
+        final letra = dados['ficha'].toString().toUpperCase().trim();
+        if (letra.isNotEmpty) letras.add(letra);
+      }
+    }
+    final listaFichas = letras.toList()..sort();
+    if (!listaFichas.contains(_fichaSelecionadaAluno)) {
+      _fichaSelecionadaAluno = listaFichas.first;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildBannerFonteTreinos(
+          'Treinos carregados da estrutura atual.',
+          Colors.green,
+          Icons.check_circle_outline,
+        ),
+        _buildFichaTabBar(listaFichas),
+        const SizedBox(height: 12),
+        StreamBuilder<QuerySnapshot>(
+          stream: _workoutService.listarTreinosPorFicha(_alunoSelecionadoId!, _fichaSelecionadaAluno),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) return _buildErroBannerTreinos(snapshot.error.toString());
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator(color: Colors.amber));
+            }
+            final treinos = snapshot.data!.docs;
+            if (treinos.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(child: Text('Nenhum exercício cadastrado nesta série.')),
+              );
+            }
+            return Column(
+              children: treinos.map((t) {
+                final dados = t.data() as Map<String, dynamic>;
+                return _buildExercicioCard(dados, treinoId: t.id);
+              }).toList(),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFichasComDadosAntigos(
+    List<Map<String, dynamic>> treinosAntigos,
+    String docIdAntigo,
+  ) {
+    final letras = <String>{'A', _fichaSelecionadaAluno};
+    for (final t in treinosAntigos) {
+      final letra = (t['ficha'] ?? 'A').toString().toUpperCase().trim();
+      if (letra.isNotEmpty) letras.add(letra);
+    }
+    final listaFichas = letras.toList()..sort();
+    if (!listaFichas.contains(_fichaSelecionadaAluno)) {
+      _fichaSelecionadaAluno = listaFichas.first;
+    }
+
+    final fichaAtual = _fichaSelecionadaAluno;
+    final exerciciosDaFicha = treinosAntigos
+        .where((t) => (t['ficha'] ?? 'A').toString().toUpperCase().trim() == fichaAtual)
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildBannerFonteTreinos(
+          'Treinos encontrados na estrutura antiga.',
+          Colors.orange,
+          Icons.history,
+        ),
+        if (_eProfessor) ...[
+          const SizedBox(height: 4),
+          SizedBox(
+            width: double.maxFinite,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                foregroundColor: Colors.white,
+              ),
+              icon: const Icon(Icons.upload, size: 18),
+              label: const Text('Migrar treinos antigos deste aluno', style: TextStyle(fontSize: 13)),
+              onPressed: () => _migrarTreinosAntigos(docIdAntigo),
+            ),
+          ),
+          const SizedBox(height: 2),
+          const Text(
+            'Os treinos serão copiados para a estrutura atual. Os dados originais não serão apagados.',
+            style: TextStyle(fontSize: 11, color: Colors.blueGrey),
+          ),
+        ],
+        const SizedBox(height: 10),
+        _buildFichaTabBar(listaFichas),
+        const SizedBox(height: 12),
+        if (exerciciosDaFicha.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Center(child: Text('Nenhum exercício nesta ficha (dados antigos).')),
+          )
+        else
+          Column(children: exerciciosDaFicha.map((t) => _buildExercicioCard(t)).toList()),
+      ],
+    );
+  }
+
+  Widget _buildFichasVazias() {
+    const listaFichas = ['A', 'B', 'C'];
+    if (!listaFichas.contains(_fichaSelecionadaAluno)) _fichaSelecionadaAluno = 'A';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildBannerFonteTreinos(
+          'Nenhum treino encontrado para este aluno.',
+          Colors.blueGrey,
+          Icons.info_outline,
+        ),
+        _buildFichaTabBar(listaFichas),
+        const SizedBox(height: 12),
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: Center(child: Text('Nenhum exercício cadastrado nesta série.')),
+        ),
+      ],
+    );
+  }
+
   Widget _construirListaDeTreinosEfetivos() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -4802,287 +7830,49 @@ class _HomeScreenState extends State<HomeScreen> {
           .collection('treinos')
           .snapshots(),
       builder: (context, snapshotGeralTreinos) {
-        Set<String> letrasFichasExistentes = {
-          'A',
-          'B',
-          'C',
-          _fichaSelecionadaAluno,
-        };
+        if (snapshotGeralTreinos.hasError) {
+          return _buildErroBannerTreinos(snapshotGeralTreinos.error.toString());
+        }
+        if (!snapshotGeralTreinos.hasData) {
+          return const Center(child: CircularProgressIndicator(color: Colors.amber));
+        }
 
-        if (snapshotGeralTreinos.hasData) {
-          for (var doc in snapshotGeralTreinos.data!.docs) {
-            var dados = doc.data() as Map<String, dynamic>;
-            if (dados.containsKey('ficha')) {
-              String letra = dados['ficha'].toString().toUpperCase().trim();
-              if (letra.isNotEmpty) {
-                letrasFichasExistentes.add(letra);
-              }
+        final treinosNovos = snapshotGeralTreinos.data!.docs;
+
+        if (treinosNovos.isNotEmpty) {
+          return _buildFichasComStreamNovo(treinosNovos);
+        }
+
+        // Caminho novo vazio — verificar caminho antigo com cache para não re-executar ao trocar ficha
+        if (_alunoIdCacheTreinosAntigos != _alunoSelecionadoId) {
+          _futureTreinosAntigos = _workoutService.buscarTreinosAntigos(
+            alunoId: _alunoSelecionadoId!,
+            alunoNome: _alunoSelecionadoNome,
+            email: _alunoSelecionadoEmail,
+          );
+          _alunoIdCacheTreinosAntigos = _alunoSelecionadoId;
+        }
+
+        return FutureBuilder<Map<String, dynamic>?>(
+          future: _futureTreinosAntigos,
+          builder: (context, snapAntigo) {
+            if (snapAntigo.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator(color: Colors.amber));
             }
-          }
-        }
+            if (snapAntigo.hasError) {
+              return _buildErroBannerTreinos(snapAntigo.error.toString());
+            }
 
-        List<String> listaFichasOrdenadas = letrasFichasExistentes.toList()
-          ..sort();
+            final resultado = snapAntigo.data;
+            if (resultado == null || (resultado['treinos'] as List).isEmpty) {
+              return _buildFichasVazias();
+            }
 
-        if (!listaFichasOrdenadas.contains(_fichaSelecionadaAluno)) {
-          _fichaSelecionadaAluno = listaFichasOrdenadas.first;
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  _eProfessor ? 'Ficha Ativa:' : 'Escolha a Série de Hoje:',
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (_eProfessor) ...[
-                  Row(
-                    children: [
-                      TextButton.icon(
-                        icon: const Icon(
-                          Icons.add,
-                          size: 18,
-                          color: Colors.blueAccent,
-                        ),
-                        label: const Text(
-                          'Nova Ficha',
-                          style: TextStyle(
-                            color: Colors.blueAccent,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        onPressed: () {
-                          int proximoCodigoLetra =
-                              listaFichasOrdenadas.last.codeUnitAt(0) + 1;
-                          String proximaLetra = String.fromCharCode(
-                            proximoCodigoLetra,
-                          );
-
-                          setState(() {
-                            _fichaSelecionadaAluno = proximaLetra;
-                          });
-
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Ficha $proximaLetra liberada! Agora basta vincular exercícios a ela. 🏋️‍♂️',
-                              ),
-                              backgroundColor: Colors.blue,
-                            ),
-                          );
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_sweep, color: Colors.red),
-                        onPressed: _limparFichaCompleta,
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-            const SizedBox(height: 8),
-
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: listaFichasOrdenadas.map((letraFicha) {
-                  bool estaSelecionada = _fichaSelecionadaAluno == letraFicha;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: estaSelecionada
-                            ? Colors.black
-                            : Colors.white,
-                        foregroundColor: estaSelecionada
-                            ? Colors.amber
-                            : Colors.black87,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                      ),
-                      onPressed: () =>
-                          setState(() => _fichaSelecionadaAluno = letraFicha),
-                      child: Text('TREINO $letraFicha'),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            StreamBuilder<QuerySnapshot>(
-              stream: _workoutService.listarTreinosPorFicha(
-                _alunoSelecionadoId!,
-                _fichaSelecionadaAluno,
-              ),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData)
-                  return const Center(
-                    child: CircularProgressIndicator(color: Colors.amber),
-                  );
-                final treinos = snapshot.data?.docs ?? [];
-                if (treinos.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16.0),
-                    child: Center(
-                      child: Text('Nenhum exercício cadastrado nesta série.'),
-                    ),
-                  );
-                }
-
-                return Column(
-                  children: treinos.map((t) {
-                    final dadosTratados = t.data() as Map<String, dynamic>;
-                    String nomeDoExercicioItem =
-                        dadosTratados['exercicios'] ?? 'Exercício';
-
-                    return Card(
-                      color: Colors.white,
-                      margin: const EdgeInsets.symmetric(
-                        vertical: 4,
-                        horizontal: 2,
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4.0),
-                        child: Row(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(left: 4.0),
-                              child: IconButton(
-                                icon: const Icon(
-                                  Icons.play_circle_fill,
-                                  color: Colors.amber,
-                                  size: 36,
-                                ),
-                                onPressed: () =>
-                                    _assistirVideo(dadosTratados['videoUrl']),
-                              ),
-                            ),
-                            Expanded(
-                              child: GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: () {
-                                  if (!_eProfessor)
-                                    _mostrarDetalhesExercicioAluno(
-                                      dadosTratados,
-                                    );
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 8.0,
-                                    horizontal: 4.0,
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        nomeDoExercicioItem,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '${dadosTratados['grupo'] ?? ''} | Reps: ${dadosTratados['series'] ?? ''} | Base: ${dadosTratados['carga'] ?? ''}',
-                                        style: TextStyle(
-                                          color: Colors.grey[600],
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.history,
-                                    color: Colors.blueGrey,
-                                    size: 22,
-                                  ),
-                                  tooltip: 'Ver Evolução de Força',
-                                  onPressed: () =>
-                                      _abrirHistoricoDeCargasDoExercicio(
-                                        nomeDoExercicioItem,
-                                      ),
-                                ),
-                                if (_eProfessor) ...[
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.edit,
-                                      color: Colors.orange,
-                                      size: 22,
-                                    ),
-                                    onPressed: () =>
-                                        _abrirConfiguracaoExercicio(
-                                          dadosTratados['grupo'] ?? '',
-                                          nomeDoExercicioItem,
-                                          treinoId: t.id,
-                                          seriesAtual: dadosTratados['series'],
-                                          cargaAtual: dadosTratados['carga'],
-                                          videoUrlAtual:
-                                              dadosTratados['videoUrl'],
-                                        ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.delete,
-                                      color: Colors.red,
-                                      size: 22,
-                                    ),
-                                    onPressed: () =>
-                                        _workoutService.excluirTreino(
-                                          _alunoSelecionadoId!,
-                                          t.id,
-                                        ),
-                                  ),
-                                ] else ...[
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.scale,
-                                      color: Colors.green,
-                                      size: 22,
-                                    ),
-                                    tooltip: 'Anotar Peso de Hoje',
-                                    onPressed: () => _abrirPopupAnotarCarga(
-                                      nomeDoExercicioItem,
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.play_circle_outline,
-                                      color: Colors.amber,
-                                      size: 24,
-                                    ),
-                                    tooltip: 'Iniciar Descanso',
-                                    onPressed: () => _iniciarCronometroDescanso(
-                                      nomeDoExercicioItem,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                );
-              },
-            ),
-          ],
+            return _buildFichasComDadosAntigos(
+              List<Map<String, dynamic>>.from(resultado['treinos'] as List),
+              resultado['docId'] as String,
+            );
+          },
         );
       },
     );

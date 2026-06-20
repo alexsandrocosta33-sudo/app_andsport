@@ -31,7 +31,9 @@ class AuthService {
       await _db.collection('usuarios').add({
         'nome': nome.trim(),
         'email': email.trim().toLowerCase(),
-        'eProfessor': false,
+        'cargo': 'aluno',
+        'statusPagamento': 'Pendente',
+        'iaStatusAssinatura': 'NaoAtivado',
         'dataCadastro': FieldValue.serverTimestamp(),
       });
 

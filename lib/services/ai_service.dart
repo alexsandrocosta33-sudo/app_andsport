@@ -77,7 +77,12 @@ class AIService {
       }
 
       if (response.statusCode == 429) {
-        return "ERRO_429: Limite de requisições excedido ou chave de API inválida. Verifique o terminal do VS Code para ver o relatório completo do erro.";
+        final body = jsonDecode(response.body);
+        final reason = body['error']?['status']?.toString() ?? '';
+        if (reason == 'RESOURCE_EXHAUSTED' || reason.contains('EXHAUSTED')) {
+          return "ERRO_429: Serviço de IA temporariamente indisponível por limite de uso. Verifique os créditos da API ou tente novamente mais tarde.";
+        }
+        return "ERRO_429: Limite de requisições atingido. Tente novamente em alguns minutos.";
       }
 
       if (response.statusCode == 401 || response.statusCode == 403) {
