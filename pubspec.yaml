@@ -38,6 +38,26 @@ dependencies:
   # Gráficos
   fl_chart: ^1.2.0
 
+  # Tema e tipografia
+  google_fonts: ^6.2.1
+
+  # Notificações push
+  firebase_messaging: ^16.2.2
+  flutter_local_notifications: ^18.0.1
+
+  # Armazenamento local (onboarding + preferências)
+  shared_preferences: ^2.3.3
+
+  # Cache offline
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # Conectividade (sincronização automática)
+  connectivity_plus: ^6.1.1
+
+  # Vibração (cronômetro de descanso)
+  vibration: ^2.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
