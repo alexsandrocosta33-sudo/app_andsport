@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -14,7 +15,7 @@ class AuthService {
       );
       return resultado.user;
     } on FirebaseAuthException catch (e) {
-      print("Erro no cadastro: ${e.message}");
+      debugPrint('[AuthService] Erro no cadastro: ${e.message}');
       rethrow;
     }
   }
@@ -43,7 +44,7 @@ class AuthService {
         password: senha.trim(),
       );
     } catch (e) {
-      print("Erro na criação administrativa de aluno: $e");
+      debugPrint('[AuthService] Erro na criação administrativa de aluno: $e');
       rethrow;
     }
   }
@@ -57,7 +58,7 @@ class AuthService {
       );
       return resultado.user;
     } on FirebaseAuthException catch (e) {
-      print("Erro no login: ${e.message}");
+      debugPrint('[AuthService] Erro no login: ${e.message}');
       rethrow;
     }
   }
@@ -67,7 +68,7 @@ class AuthService {
     try {
       await _auth.signOut();
     } catch (e) {
-      print("Erro ao deslogar: ${e.toString()}");
+      debugPrint('[AuthService] Erro ao deslogar: ${e.toString()}');
       rethrow;
     }
   }

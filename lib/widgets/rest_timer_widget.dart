@@ -122,7 +122,7 @@ class _RestTimerWidgetState extends State<RestTimerWidget>
 
   Future<void> _vibrarConclusao() async {
     try {
-      final temVibracao = await Vibration.hasVibrator() ?? false;
+      final temVibracao = await Vibration.hasVibrator();
       if (temVibracao) {
         // 3 pulsos para sinalizar o fim do descanso
         await Vibration.vibrate(pattern: [0, 400, 150, 400, 150, 400]);

@@ -1,10 +1,10 @@
-import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 /// Handler para mensagens FCM recebidas com o app em background/encerrado.
 /// Precisa ser função top-level (não pode ser método de classe).
+/// Ignorado no web — service workers cuidam disso lá.
 @pragma('vm:entry-point')
 Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {
   debugPrint('[FCM] Background: ${message.notification?.title}');
@@ -29,6 +29,14 @@ class NotificationService {
 
   /// Inicializa FCM e notificações locais. Chamar em main() antes de runApp().
   Future<void> inicializar() async {
+    // flutter_local_notifications e Platform.isAndroid/iOS não existem no web.
+    // FCM web requer configuração adicional de service worker (VAPID key) que
+    // ainda não está ativa — ignora com segurança sem bloquear o app.
+    if (kIsWeb) {
+      debugPrint('[FCM] Web detectado: inicialização nativa ignorada.');
+      return;
+    }
+
     try {
       // Registra handler de background antes de qualquer outra coisa
       FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
@@ -79,12 +87,11 @@ class NotificationService {
     );
 
     // Cria o canal de notificação no Android 8+
-    if (Platform.isAndroid) {
-      await _localNotifications
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(_canalTreino);
-    }
+    // Chamado apenas em mobile (kIsWeb já retornou antes de chegar aqui)
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(_canalTreino);
   }
 
   /// Exibe notificação local quando uma mensagem FCM chega com o app em foreground.
@@ -115,8 +122,10 @@ class NotificationService {
   }
 
   /// Agenda um lembrete diário de treino (repete todo dia no mesmo horário).
-  /// [id] único para identificar o lembrete — use 1001 para o lembrete padrão.
+  /// Ignorado no web — flutter_local_notifications não suporta web.
   Future<void> agendarLembreteTreinoDiario() async {
+    if (kIsWeb) return;
+
     await _localNotifications.periodicallyShow(
       1001,
       'Hora do treino! 💪',
@@ -139,6 +148,7 @@ class NotificationService {
 
   /// Cancela o lembrete de treino diário.
   Future<void> cancelarLembreteDiario() async {
+    if (kIsWeb) return;
     await _localNotifications.cancel(1001);
     debugPrint('[Notificações] Lembrete diário cancelado.');
   }

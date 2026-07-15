@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -29,7 +28,6 @@ class _HomeScreenState extends State<HomeScreen> {
   String _linkDownloadNovoApk = '---';
 
   // Controles de Texto
-  final _grupoController = TextEditingController();
   final _seriesController = TextEditingController();
   final _cargaController = TextEditingController();
   final _novoNomeController = TextEditingController();
@@ -148,15 +146,34 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     try {
-      final snap = await FirebaseFirestore.instance
+      Map<String, dynamic>? dadosUsuario;
+      String docId = user.uid;
+
+      // Tentativa 1: documento por UID (padrão — mais rápido e sem ambiguidade)
+      final docUid = await FirebaseFirestore.instance
           .collection('usuarios')
-          .where('email', isEqualTo: user.email?.trim())
+          .doc(user.uid)
           .get();
 
-      if (snap.docs.isNotEmpty) {
-        final docRef = snap.docs.first;
-        final dadosUsuario = docRef.data();
+      if (docUid.exists && docUid.data() != null) {
+        dadosUsuario = docUid.data();
+      } else {
+        // Tentativa 2: busca por e-mail (compatibilidade com documentos legados)
+        final email = user.email?.trim();
+        if (email != null && email.isNotEmpty) {
+          final snap = await FirebaseFirestore.instance
+              .collection('usuarios')
+              .where('email', isEqualTo: email)
+              .limit(1)
+              .get();
+          if (snap.docs.isNotEmpty) {
+            dadosUsuario = snap.docs.first.data();
+            docId = snap.docs.first.id;
+          }
+        }
+      }
 
+      if (dadosUsuario != null) {
         String cargo = (dadosUsuario['cargo'] ?? '').toString().toLowerCase().trim();
         final bool legacyEProfessor = dadosUsuario['eProfessor'] == true;
 
@@ -182,14 +199,14 @@ class _HomeScreenState extends State<HomeScreen> {
           setState(() {
             _eAdminGeral = false;
             _eProfessor = false;
-            _alunoSelecionadoId = docRef.id;
+            _alunoSelecionadoId = docId;
             _carregandoPerfil = false;
           });
         }
         return;
       }
     } catch (e) {
-      print("Erro ao sincronizar perfil: $e");
+      debugPrint('[HomeScreen] Erro ao verificar perfil: $e');
     }
 
     setState(() {
@@ -257,7 +274,7 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     } catch (e) {
-      print("Erro ao acessar camera: $e");
+      debugPrint('[HomeScreen] Erro ao acessar câmera: $e');
     }
   }
 
@@ -322,7 +339,7 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
+            color: Colors.black.withValues(alpha:0.15),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -473,7 +490,7 @@ class _HomeScreenState extends State<HomeScreen> {
         SnackBar(content: Text(mensagem), backgroundColor: Colors.redAccent),
       );
     } catch (e) {
-      print("Erro ao cadastrar professor: $e");
+      debugPrint('[HomeScreen] Erro ao cadastrar professor: $e');
     }
   }
 
@@ -938,7 +955,7 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
-                value: _planoSelecionadoAluno,
+                initialValue: _planoSelecionadoAluno,
                 items: _valoresPlanosCarregados.keys
                     .where((k) => k != 'Peito')
                     .map((p) => DropdownMenuItem(value: p, child: Text(p)))
@@ -961,7 +978,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
-                value: _statusPagamentoSelecionado,
+                initialValue: _statusPagamentoSelecionado,
                 items: ['Pago', 'Pendente', 'Atrasado']
                     .map((s) => DropdownMenuItem(value: s, child: Text(s)))
                     .toList(),
@@ -1015,7 +1032,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.black,
-      barrierColor: Colors.black.withOpacity(0.75),
+      barrierColor: Colors.black.withValues(alpha:0.75),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -1598,42 +1615,6 @@ class _HomeScreenState extends State<HomeScreen> {
         0;
   }
 
-  Future<void> _liberarAvaliacaoFisicaProManual({required bool combo}) async {
-    if (_alunoSelecionadoId == null) return;
-
-    final agora = DateTime.now();
-    await FirebaseFirestore.instance
-        .collection('usuarios')
-        .doc(_alunoSelecionadoId)
-        .set({
-          'avaliacaoFisicaStatusAssinatura': 'Ativo',
-          'planoAvaliacaoFisica': combo
-              ? 'Combo Performance IA'
-              : 'Evolução Física PRO',
-          'valorAvaliacaoFisica': combo ? 29.90 : 19.90,
-          'dataInicioAvaliacaoFisica': FieldValue.serverTimestamp(),
-          'dataFimAvaliacaoFisica': Timestamp.fromDate(
-            agora.add(const Duration(days: 30)),
-          ),
-          'avaliacaoFisicaIAMesReferencia':
-              _mesReferenciaAtualAvaliacaoFisica(),
-          'avaliacaoFisicaIAUsosMes': 0,
-          'atualizadoEm': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          combo
-              ? 'Combo Performance IA liberado por 30 dias para o aluno!'
-              : 'Evolução Física PRO liberada por 30 dias para o aluno!',
-        ),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
-
   Widget _cardBloqueioAvaliacaoFisicaPro({bool professor = false}) {
     return Card(
       color: Colors.white,
@@ -1647,7 +1628,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: Colors.deepPurple.withOpacity(0.12),
+                  backgroundColor: Colors.deepPurple.withValues(alpha:0.12),
                   child: const Icon(
                     Icons.workspace_premium,
                     color: Colors.deepPurple,
@@ -1680,9 +1661,9 @@ class _HomeScreenState extends State<HomeScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.deepPurple.withOpacity(0.07),
+                color: Colors.deepPurple.withValues(alpha:0.07),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.deepPurple.withOpacity(0.22)),
+                border: Border.all(color: Colors.deepPurple.withValues(alpha:0.22)),
               ),
               child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1811,13 +1792,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         color: proAtivo
-                            ? Colors.green.withOpacity(0.08)
-                            : Colors.orange.withOpacity(0.10),
+                            ? Colors.green.withValues(alpha:0.08)
+                            : Colors.orange.withValues(alpha:0.10),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
                           color: proAtivo
-                              ? Colors.green.withOpacity(0.25)
-                              : Colors.orange.withOpacity(0.35),
+                              ? Colors.green.withValues(alpha:0.25)
+                              : Colors.orange.withValues(alpha:0.35),
                         ),
                       ),
                       child: Text(
@@ -1929,10 +1910,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               width: double.infinity,
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.deepPurple.withOpacity(0.08),
+                                color: Colors.deepPurple.withValues(alpha:0.08),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: Colors.deepPurple.withOpacity(0.25),
+                                  color: Colors.deepPurple.withValues(alpha:0.25),
                                 ),
                               ),
                               child: Column(
@@ -2407,7 +2388,7 @@ $linhasHistorico
         SnackBar(content: Text(msg), backgroundColor: Colors.redAccent),
       );
     } catch (e) {
-      print("Erro ao cadastrar aluno: $e");
+      debugPrint('[HomeScreen] Erro ao cadastrar aluno: $e');
     }
   }
 
@@ -2446,7 +2427,7 @@ $linhasHistorico
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: objetivoSelecionado,
+                  initialValue: objetivoSelecionado,
                   decoration: const InputDecoration(
                     labelText: 'Objetivo Principal',
                     border: OutlineInputBorder(),
@@ -2467,7 +2448,7 @@ $linhasHistorico
                 ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
-                  value: nivelSelecionado,
+                  initialValue: nivelSelecionado,
                   decoration: const InputDecoration(
                     labelText: 'Nível Atual',
                     border: OutlineInputBorder(),
@@ -2542,9 +2523,9 @@ $linhasHistorico
                     width: double.infinity,
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.amber.withOpacity(0.08),
+                      color: Colors.amber.withValues(alpha:0.08),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                      border: Border.all(color: Colors.amber.withValues(alpha:0.3)),
                     ),
                     child: SingleChildScrollView(
                       child: Text(
@@ -2630,9 +2611,7 @@ $linhasHistorico
                                 ),
                               );
                             } catch (erroParsing) {
-                              print(
-                                "Erro ao processar estrutura JSON da IA: $erroParsing",
-                              );
+                              debugPrint('[HomeScreen] Erro ao processar JSON da IA: $erroParsing');
                               setPopupState(() => gravandoNoBanco = false);
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
@@ -2661,220 +2640,6 @@ $linhasHistorico
         ),
       ),
     );
-  }
-
-  void _injetarPlanoTreinoPadrao(String nivel) async {
-    if (_alunoSelecionadoId == null) return;
-
-    List<Map<String, String>> planoModelo = [];
-
-    if (nivel == 'Iniciante') {
-      planoModelo = [
-        {
-          'ficha': 'A',
-          'grupo': 'Peito',
-          'exercicio': 'Supino Reto na Máquina',
-          'series': '3x12',
-          'carga': '20 kg',
-        },
-        {
-          'ficha': 'A',
-          'grupo': 'Peito',
-          'exercicio': 'Pec Deck (Voador)',
-          'series': '3x12',
-          'carga': '25 kg',
-        },
-        {
-          'ficha': 'A',
-          'grupo': 'Tríceps',
-          'exercicio': 'Tríceps Pulley',
-          'series': '3x12',
-          'carga': '15 kg',
-        },
-        {
-          'ficha': 'B',
-          'grupo': 'Pernas',
-          'exercicio': 'Leg Press 45º',
-          'series': '3x15',
-          'carga': '60 kg',
-        },
-        {
-          'ficha': 'B',
-          'grupo': 'Pernas',
-          'exercicio': 'Cadeira Extensora',
-          'series': '3x12',
-          'carga': '20 kg',
-        },
-        {
-          'ficha': 'C',
-          'grupo': 'Costas',
-          'exercicio': 'Puxada Aberta no Pulley',
-          'series': '3x12',
-          'carga': '25 kg',
-        },
-        {
-          'ficha': 'C',
-          'grupo': 'Bíceps',
-          'exercicio': 'Rosca Direta com Halteres',
-          'series': '3x12',
-          'carga': '6 kg',
-        },
-      ];
-    } else if (nivel == 'Intermediário') {
-      planoModelo = [
-        {
-          'ficha': 'A',
-          'grupo': 'Peito',
-          'exercicio': 'Supino Reto com Barra',
-          'series': '4x10',
-          'carga': '40 kg',
-        },
-        {
-          'ficha': 'A',
-          'grupo': 'Peito',
-          'exercicio': 'Supino Inclinado com Halteres',
-          'series': '4x10',
-          'carga': '16 kg',
-        },
-        {
-          'ficha': 'A',
-          'grupo': 'Tríceps',
-          'exercicio': 'Tríceps Testa',
-          'series': '4x10',
-          'carga': '10 kg',
-        },
-        {
-          'ficha': 'B',
-          'grupo': 'Pernas',
-          'exercicio': 'Agachamento Livre',
-          'series': '4x10',
-          'carga': '30 kg',
-        },
-        {
-          'ficha': 'B',
-          'grupo': 'Pernas',
-          'exercicio': 'Mesa Flexora',
-          'series': '4x10',
-          'carga': '25 kg',
-        },
-        {
-          'ficha': 'C',
-          'grupo': 'Costas',
-          'exercicio': 'Remada Baixa Sentado',
-          'series': '4x10',
-          'carga': '40 kg',
-        },
-        {
-          'ficha': 'C',
-          'grupo': 'Bíceps',
-          'exercicio': 'Rosca Scott',
-          'series': '4x10',
-          'carga': '12 kg',
-        },
-        {
-          'ficha': 'D',
-          'grupo': 'Ombros',
-          'exercicio': 'Desenvolvimento com Halteres',
-          'series': '4x10',
-          'carga': '12 kg',
-        },
-      ];
-    } else if (nivel == 'Avançado') {
-      planoModelo = [
-        {
-          'ficha': 'A',
-          'grupo': 'Peito',
-          'exercicio': 'Supino Reto no Smith',
-          'series': '4x8',
-          'carga': '60 kg',
-        },
-        {
-          'ficha': 'A',
-          'grupo': 'Peito',
-          'exercicio': 'Crucifixo Inclinado em Banco',
-          'series': '4x10',
-          'carga': '20 kg',
-        },
-        {
-          'ficha': 'A',
-          'grupo': 'Tríceps',
-          'exercicio': 'Tríceps Pulley com Corda',
-          'series': '4x12',
-          'carga': '25 kg',
-        },
-        {
-          'ficha': 'B',
-          'grupo': 'Pernas',
-          'exercicio': 'Agachamento Livre Pesado',
-          'series': '4x8',
-          'carga': '70 kg',
-        },
-        {
-          'ficha': 'B',
-          'grupo': 'Pernas',
-          'exercicio': 'Cadeira Flexora',
-          'series': '4x12',
-          'carga': '40 kg',
-        },
-        {
-          'ficha': 'C',
-          'grupo': 'Costas',
-          'exercicio': 'Remada Curvada com Barra',
-          'series': '4x8',
-          'carga': '50 kg',
-        },
-        {
-          'ficha': 'C',
-          'grupo': 'Bíceps',
-          'exercicio': 'Rosca Direta na Barra W',
-          'series': '4x10',
-          'carga': '20 kg',
-        },
-        {
-          'ficha': 'D',
-          'grupo': 'Ombros',
-          'exercicio': 'Elevação Lateral na Polia',
-          'series': '4x12',
-          'carga': '10 kg',
-        },
-      ];
-    }
-
-    try {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) =>
-            const Center(child: CircularProgressIndicator(color: Colors.amber)),
-      );
-
-      for (var ex in planoModelo) {
-        await _workoutService.salvarTreino(
-          alunoId: _alunoSelecionadoId!,
-          ficha: ex['ficha']!,
-          grupoMuscular: ex['grupo']!,
-          nomeExercicios: ex['exercicio']!,
-          seriesRepeticoes: ex['series']!,
-          carga: ex['carga']!,
-          videoUrl: '---',
-        );
-      }
-
-      if (!mounted) return;
-      Navigator.pop(context);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Plano Padrão ($nivel) injetado com sucesso na ficha do aluno! 🏋️‍♂️🔥',
-          ),
-          backgroundColor: Colors.green[800],
-        ),
-      );
-    } catch (e) {
-      Navigator.pop(context);
-      print("Erro ao aplicar plano padrão: $e");
-    }
   }
 
   // =========================================================================
@@ -2920,7 +2685,7 @@ $linhasHistorico
               ),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
-                value: nivel,
+                initialValue: nivel,
                 decoration: const InputDecoration(
                   labelText: 'Nível',
                   border: OutlineInputBorder(),
@@ -2931,7 +2696,7 @@ $linhasHistorico
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: perfil,
+                initialValue: perfil,
                 decoration: const InputDecoration(
                   labelText: 'Perfil',
                   border: OutlineInputBorder(),
@@ -3460,8 +3225,8 @@ $linhasHistorico
                           ),
                           decoration: BoxDecoration(
                             color: segundosRestantes > 60
-                                ? Colors.green.withOpacity(0.12)
-                                : Colors.orange.withOpacity(0.15),
+                                ? Colors.green.withValues(alpha:0.12)
+                                : Colors.orange.withValues(alpha:0.15),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: segundosRestantes > 60
@@ -3580,10 +3345,10 @@ $linhasHistorico
                           width: double.infinity,
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.10),
+                            color: Colors.blue.withValues(alpha:0.10),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: Colors.blue.withOpacity(0.35),
+                              color: Colors.blue.withValues(alpha:0.35),
                             ),
                           ),
                           child: Text(
@@ -3728,7 +3493,7 @@ $linhasHistorico
 
       return dados['aprovado'] == true;
     } catch (e) {
-      print('Erro ao consultar status do PIX: $e');
+      debugPrint('[HomeScreen] Erro ao consultar status do PIX Scanner: $e');
       return false;
     }
   }
@@ -3962,8 +3727,8 @@ $linhasHistorico
                           ),
                           decoration: BoxDecoration(
                             color: segundosRestantes > 60
-                                ? Colors.green.withOpacity(0.12)
-                                : Colors.orange.withOpacity(0.15),
+                                ? Colors.green.withValues(alpha:0.12)
+                                : Colors.orange.withValues(alpha:0.15),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: segundosRestantes > 60
@@ -4070,10 +3835,10 @@ $linhasHistorico
                           width: double.infinity,
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.10),
+                            color: Colors.blue.withValues(alpha:0.10),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: Colors.blue.withOpacity(0.35),
+                              color: Colors.blue.withValues(alpha:0.35),
                             ),
                           ),
                           child: Text(
@@ -4190,7 +3955,7 @@ $linhasHistorico
       );
       return dados['aprovado'] == true;
     } catch (e) {
-      print('Erro ao consultar status do PIX da Avaliação Física PRO: $e');
+      debugPrint('[HomeScreen] Erro ao consultar status do PIX Avaliação Física PRO: $e');
       return false;
     }
   }
@@ -4203,42 +3968,6 @@ $linhasHistorico
     final segundosFormatado = restoSegundos.toString().padLeft(2, '0');
 
     return '$minutosFormatado:$segundosFormatado';
-  }
-
-  Widget _beneficioScannerPro({
-    required IconData icon,
-    required String titulo,
-    required String texto,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: Colors.purple, size: 20),
-          const SizedBox(height: 5),
-          Text(
-            titulo,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            texto,
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-          ),
-        ],
-      ),
-    );
   }
 
   void _mostrarDetalhesExercicioAluno(Map<String, dynamic> dados) {
@@ -4558,7 +4287,7 @@ $linhasHistorico
                               dotData: const FlDotData(show: true),
                               belowBarData: BarAreaData(
                                 show: true,
-                                color: Colors.green[600]!.withOpacity(0.15),
+                                color: Colors.green[600]!.withValues(alpha:0.15),
                               ),
                             ),
                           ],
@@ -4758,9 +4487,9 @@ $linhasHistorico
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
-          color: cor.withOpacity(0.12),
+          color: cor.withValues(alpha:0.12),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: cor.withOpacity(0.35), width: 1),
+          border: Border.all(color: cor.withValues(alpha:0.35), width: 1),
         ),
         child: Column(
           children: [
@@ -4770,7 +4499,7 @@ $linhasHistorico
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
-                color: cor.withOpacity(0.9),
+                color: cor.withValues(alpha:0.9),
               ),
             ),
             const SizedBox(height: 4),
@@ -4909,7 +4638,7 @@ $linhasHistorico
                               width: double.infinity,
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.08),
+                                color: Colors.white.withValues(alpha:0.08),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(color: Colors.white24),
                               ),
@@ -4940,7 +4669,7 @@ $linhasHistorico
                                 margin: const EdgeInsets.only(bottom: 8),
                                 padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.08),
+                                  color: Colors.white.withValues(alpha:0.08),
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(color: Colors.white24),
                                 ),
@@ -5031,7 +4760,7 @@ $linhasHistorico
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     DropdownButtonFormField<String>(
-                      value: _grupoSelecionadoParaNovoExercicio,
+                      initialValue: _grupoSelecionadoParaNovoExercicio,
                       decoration: const InputDecoration(
                         labelText: 'Grupo Muscular',
                         border: OutlineInputBorder(),
@@ -5544,7 +5273,7 @@ $linhasHistorico
                   const SizedBox(height: 12),
 
                   DropdownButtonFormField<String>(
-                    value: _grupoSelecionadoFiltro,
+                    initialValue: _grupoSelecionadoFiltro,
                     decoration: const InputDecoration(
                       labelText: '1. Selecione o Grupo Muscular',
                       border: OutlineInputBorder(),
@@ -5601,7 +5330,7 @@ $linhasHistorico
                       }
 
                       return DropdownButtonFormField<String>(
-                        value:
+                        initialValue:
                             chavesValidas.contains(
                               _exercicioSelecionadoCardapio,
                             )
@@ -5986,7 +5715,7 @@ $linhasHistorico
               elevation: 2,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: Colors.purple.withOpacity(0.3)),
+                side: BorderSide(color: Colors.purple.withValues(alpha:0.3)),
               ),
               child: ExpansionTile(
                 initiallyExpanded: true,
@@ -6035,7 +5764,7 @@ $linhasHistorico
                             decoration: BoxDecoration(
                               color: _obterCorStatus(
                                 alunoIA['statusPagamento'],
-                              ).withOpacity(0.15),
+                              ).withValues(alpha:0.15),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -6062,7 +5791,7 @@ $linhasHistorico
               elevation: 2,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: Colors.deepPurple.withOpacity(0.3)),
+                side: BorderSide(color: Colors.deepPurple.withValues(alpha:0.3)),
               ),
               child: ExpansionTile(
                 initiallyExpanded: false,
@@ -6319,7 +6048,7 @@ $linhasHistorico
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 onPressed: () {
-                  print('Baixando nova versão de: $_linkDownloadNovoApk');
+                  debugPrint('[HomeScreen] Download APK: $_linkDownloadNovoApk');
                 },
               ),
               const SizedBox(height: 16),
@@ -6366,9 +6095,9 @@ $linhasHistorico
         child: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: cor.withOpacity(0.08),
+            color: cor.withValues(alpha:0.08),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: cor.withOpacity(0.25)),
+            border: Border.all(color: cor.withValues(alpha:0.25)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -6459,7 +6188,7 @@ $linhasHistorico
                   child: Row(
                     children: [
                       CircleAvatar(
-                        backgroundColor: Colors.deepPurple.withOpacity(0.12),
+                        backgroundColor: Colors.deepPurple.withValues(alpha:0.12),
                         child: const Icon(
                           Icons.monitor_weight,
                           color: Colors.deepPurple,
@@ -6521,7 +6250,7 @@ $linhasHistorico
                     Row(
                       children: [
                         CircleAvatar(
-                          backgroundColor: Colors.deepPurple.withOpacity(0.12),
+                          backgroundColor: Colors.deepPurple.withValues(alpha:0.12),
                           child: const Icon(
                             Icons.insights,
                             color: Colors.deepPurple,
@@ -6818,7 +6547,7 @@ $linhasHistorico
                           child: Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.12),
+                              color: Colors.white.withValues(alpha:0.12),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Column(
@@ -6848,7 +6577,7 @@ $linhasHistorico
                           child: Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.12),
+                              color: Colors.white.withValues(alpha:0.12),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Column(
@@ -7377,10 +7106,10 @@ $linhasHistorico
                                       width: double.infinity,
                                       padding: const EdgeInsets.all(10),
                                       decoration: BoxDecoration(
-                                        color: Colors.purple.withOpacity(0.08),
+                                        color: Colors.purple.withValues(alpha:0.08),
                                         borderRadius: BorderRadius.circular(8),
                                         border: Border.all(
-                                          color: Colors.purple.withOpacity(
+                                          color: Colors.purple.withValues(alpha:
                                             0.25,
                                           ),
                                         ),

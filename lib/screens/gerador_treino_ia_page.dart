@@ -1,4 +1,4 @@
-import 'dart:convert'; // Incluído para habilitar o uso do jsonEncode nos prints de log
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:app_andsport/services/ai_service.dart';
@@ -54,7 +54,7 @@ class _GeradorTreinoIAPageState extends State<GeradorTreinoIAPage> {
         }
       }
     } catch (e) {
-      print("Erro ao carregar catálogo em memória: $e");
+      debugPrint('[GeradorTreinoIA] Erro ao carregar catálogo: $e');
     }
     return mapaExercicios;
   }
@@ -82,8 +82,7 @@ class _GeradorTreinoIAPageState extends State<GeradorTreinoIAPage> {
         exerciciosFiltroPrompt = _exerciciosBackup;
       }
 
-      print("LOG_ENTRADA_ALUNO: $_idAlunoSelecionado");
-      print("LOG_QUANTIDADE_BIBLIOTECA: ${exerciciosFiltroPrompt.length}");
+      debugPrint('[GeradorTreinoIA] Aluno: $_idAlunoSelecionado | Exercícios na biblioteca: ${exerciciosFiltroPrompt.length}');
 
       // CHAMADA ALINHADA: Parâmetro definido estritamente como 'objetivo' em português
       final Map<String, dynamic> treinoMap = await _aiService.gerarTreinoEmJson(
@@ -92,7 +91,7 @@ class _GeradorTreinoIAPageState extends State<GeradorTreinoIAPage> {
         exerciciosDisponiveis: exerciciosFiltroPrompt,
       );
 
-      print("LOG_RESPOSTA_JSON_IA: ${jsonEncode(treinoMap)}");
+      debugPrint('[GeradorTreinoIA] Resposta JSON da IA: ${jsonEncode(treinoMap)}');
 
       final firestore = FirebaseFirestore.instance;
 
@@ -234,7 +233,7 @@ class _GeradorTreinoIAPageState extends State<GeradorTreinoIAPage> {
                 }
 
                 return DropdownButtonFormField<String>(
-                  value: _idAlunoSelecionado,
+                  initialValue: _idAlunoSelecionado,
                   hint: const Text('Selecione o Aluno da Academia'),
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
@@ -260,7 +259,7 @@ class _GeradorTreinoIAPageState extends State<GeradorTreinoIAPage> {
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: _objetivoSelecionado,
+              initialValue: _objetivoSelecionado,
               decoration: const InputDecoration(
                 labelText: 'Objetivo',
                 border: OutlineInputBorder(),
@@ -285,7 +284,7 @@ class _GeradorTreinoIAPageState extends State<GeradorTreinoIAPage> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: _nivelSelecionado,
+              initialValue: _nivelSelecionado,
               decoration: const InputDecoration(
                 labelText: 'Nível de Experiência',
                 border: OutlineInputBorder(),

@@ -174,7 +174,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   decoration: BoxDecoration(
                     color: _paginaAtual == i
                         ? AppColors.acento
-                        : Colors.white.withOpacity(0.3),
+                        : Colors.white.withValues(alpha:0.3),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusCircular),
                   ),
                 ),
@@ -236,10 +236,10 @@ class _PaginaOnboarding extends StatelessWidget {
             width: 130,
             height: 130,
             decoration: BoxDecoration(
-              color: AppColors.acento.withOpacity(0.12),
+              color: AppColors.acento.withValues(alpha:0.12),
               shape: BoxShape.circle,
               border: Border.all(
-                color: AppColors.acento.withOpacity(0.3),
+                color: AppColors.acento.withValues(alpha:0.3),
                 width: 2,
               ),
             ),
@@ -312,12 +312,12 @@ class _PaginaObjetivo extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: selecionado
                         ? AppColors.acento
-                        : Colors.white.withOpacity(0.08),
+                        : Colors.white.withValues(alpha:0.08),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                     border: Border.all(
                       color: selecionado
                           ? AppColors.acento
-                          : Colors.white.withOpacity(0.2),
+                          : Colors.white.withValues(alpha:0.2),
                       width: 1.5,
                     ),
                   ),

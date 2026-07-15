@@ -139,7 +139,7 @@ class _LoginScreenState extends State<LoginScreen> {
               constraints: const BoxConstraints(maxWidth: 400),
               padding: const EdgeInsets.all(32.0),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.96),
+                color: Colors.white.withValues(alpha:0.96),
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: const [
                   BoxShadow(
@@ -165,7 +165,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: Colors.black,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.amber.withOpacity(0.5),
+                              color: Colors.amber.withValues(alpha:0.5),
                               blurRadius: 12,
                               spreadRadius: 2,
                             ),

@@ -206,7 +206,7 @@ class _TreinosPadraoPageState extends State<TreinosPadraoPage> {
                   children: [
                     // ── Ficha ──────────────────────────────────────────────
                     DropdownButtonFormField<String>(
-                      value: ficha,
+                      initialValue: ficha,
                       decoration: const InputDecoration(
                         labelText: 'Ficha *',
                         border: OutlineInputBorder(),
@@ -221,7 +221,7 @@ class _TreinosPadraoPageState extends State<TreinosPadraoPage> {
 
                     // ── Grupo muscular ─────────────────────────────────────
                     DropdownButtonFormField<String>(
-                      value: grupo,
+                      initialValue: grupo,
                       decoration: const InputDecoration(
                         labelText: '1. Grupo Muscular *',
                         border: OutlineInputBorder(),
@@ -315,7 +315,7 @@ class _TreinosPadraoPageState extends State<TreinosPadraoPage> {
                             : null;
 
                         return DropdownButtonFormField<String>(
-                          value: valorDropdown,
+                          initialValue: valorDropdown,
                           hint: const Text('Selecione o exercício...'),
                           decoration: const InputDecoration(
                             border: OutlineInputBorder(),
@@ -661,7 +661,7 @@ class _TreinosPadraoPageState extends State<TreinosPadraoPage> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _nivel,
+                        initialValue: _nivel,
                         dropdownColor: Colors.grey[900],
                         style: const TextStyle(color: Colors.white, fontSize: 14),
                         decoration: const InputDecoration(
@@ -686,7 +686,7 @@ class _TreinosPadraoPageState extends State<TreinosPadraoPage> {
                     const SizedBox(width: 20),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _perfil,
+                        initialValue: _perfil,
                         dropdownColor: Colors.grey[900],
                         style: const TextStyle(color: Colors.white, fontSize: 14),
                         decoration: const InputDecoration(

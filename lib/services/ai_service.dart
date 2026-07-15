@@ -1,12 +1,13 @@
 import 'dart:convert';
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class AIService {
-  // Cole aqui sua chave real do Google AI Studio.
-  // Recomendo gerar uma nova chave, pois a anterior foi exposta na conversa.
-  final String _apiKey =
-      'AQ.Ab8RN6LHBVV5EQ5P2q6fiuYFa7e3iHH80Qlb-QUyAe3DEw9yzQ';
+  // Chave lida em tempo de compilação via --dart-define=GEMINI_API_KEY=<chave>
+  // Nunca coloque a chave diretamente no código-fonte.
+  // Para desenvolvimento local: flutter run --dart-define=GEMINI_API_KEY=SUA_CHAVE
+  // Para produção (Codemagic): configure GEMINI_API_KEY nas variáveis de ambiente do build.
+  static const String _apiKey = String.fromEnvironment('GEMINI_API_KEY');
 
   Future<String> _executarChamadaGemini(
     String prompt, {
@@ -52,10 +53,10 @@ class AIService {
       );
 
       if (response.statusCode != 200) {
-        print("======== DIAGNÓSTICO DE ERRO GEMINI ========");
-        print("STATUS CODE: ${response.statusCode}");
-        print("RESPONSE BODY: ${response.body}");
-        print("============================================");
+        debugPrint("======== DIAGNÓSTICO DE ERRO GEMINI ========");
+        debugPrint("STATUS CODE: ${response.statusCode}");
+        debugPrint("RESPONSE BODY: ${response.body}");
+        debugPrint("============================================");
       }
 
       if (response.statusCode == 200) {
@@ -91,7 +92,7 @@ class AIService {
 
       return "ERRO_STATUS_${response.statusCode}";
     } catch (e) {
-      print("LOG_EXCEPCAO_CONEXAO: $e");
+      debugPrint("[AIService] Exceção de conexão: $e");
       return "ERRO_CONEXAO";
     }
   }
@@ -181,7 +182,7 @@ Responda estritamente em JSON válido, sem markdown, com estas chaves exatas:
       );
 
       if (respostaPura.startsWith("ERRO_")) {
-        print("Erro retornado pelo Gemini no scanner: $respostaPura");
+        debugPrint("[AIService] Erro no scanner de refeição: $respostaPura");
         return {
           'descricao': 'Falha ao processar alimentos na imagem.',
           'calorias': 0.0,
@@ -203,7 +204,7 @@ Responda estritamente em JSON válido, sem markdown, com estas chaves exatas:
         'gorduras': _converterNumero(dados['gorduras']),
       };
     } catch (e) {
-      print("Erro na análise multimodal da imagem no AIService: $e");
+      debugPrint("[AIService] Erro na análise multimodal da imagem: $e");
 
       return {
         'descricao': 'Falha ao processar alimentos na imagem.',
@@ -282,8 +283,8 @@ Retorne obrigatoriamente um objeto JSON válido seguindo exatamente esta estrutu
 
       return dados;
     } catch (e) {
-      print("Falha ao decodificar JSON de treino: $e");
-      print("Resposta recebida: $jsonLimpo");
+      debugPrint("[AIService] Falha ao decodificar JSON de treino: $e");
+      debugPrint("[AIService] Resposta recebida: $jsonLimpo");
 
       throw Exception("Falha ao decodificar a estrutura de treinos.");
     }

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 class WorkoutService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -21,7 +22,7 @@ class WorkoutService {
         'statusPagamento': status, // 'Pago', 'Pendente' ou 'Atrasado'
       });
     } catch (e) {
-      print("Erro ao atualizar status financeiro: $e");
+      debugPrint("[WorkoutService] Erro ao atualizar status financeiro: $e");
       rethrow;
     }
   }
@@ -71,7 +72,7 @@ class WorkoutService {
         'dataCriacao': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      print("Erro ao salvar treino: $e");
+      debugPrint("[WorkoutService] Erro ao salvar treino: $e");
       rethrow;
     }
   }
@@ -86,7 +87,7 @@ class WorkoutService {
           .doc(treinoId)
           .delete();
     } catch (e) {
-      print("Erro ao excluir treino: $e");
+      debugPrint("[WorkoutService] Erro ao excluir treino: $e");
       rethrow;
     }
   }
@@ -108,7 +109,7 @@ class WorkoutService {
             'dataConclusao': FieldValue.serverTimestamp(),
           });
     } catch (e) {
-      print("Erro ao concluir treino: $e");
+      debugPrint("[WorkoutService] Erro ao concluir treino: $e");
       rethrow;
     }
   }
