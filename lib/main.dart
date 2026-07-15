@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/gerador_treino_ia_page.dart';
 import 'screens/onboarding/onboarding_screen.dart';
+import 'services/navigation_service.dart';
 import 'services/notification_service.dart';
 import 'services/local_storage_service.dart';
 import 'theme/app_theme.dart';
@@ -14,21 +15,34 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // Inicializa cache offline e notificações antes do app subir
+  // Inicializa serviços de suporte
   await LocalStorageService.inicializar();
   await NotificationService.instancia.inicializar();
 
-  // Verifica se o usuário já passou pelo onboarding
-  final prefs = await SharedPreferences.getInstance();
-  final onboardingConcluido = prefs.getBool('onboarding_concluido') ?? false;
+  // Aguarda o Firebase Auth restaurar a sessão (obrigatório no Flutter Web —
+  // no mobile o currentUser já está disponível, mas no web pode demorar
+  // um tick enquanto o token é lido do localStorage).
+  final user = await FirebaseAuth.instance
+      .authStateChanges()
+      .first
+      .timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => null, // sem sessão → tela de login
+      );
 
-  runApp(MyApp(onboardingConcluido: onboardingConcluido));
+  // Determina a rota inicial baseada no perfil real do usuário
+  String rotaInicial = '/login';
+  if (user != null) {
+    rotaInicial = await NavigationService.definirRotaInicialUsuario(user);
+  }
+
+  runApp(MyApp(rotaInicial: rotaInicial));
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key, required this.onboardingConcluido});
+  const MyApp({super.key, required this.rotaInicial});
 
-  final bool onboardingConcluido;
+  final String rotaInicial;
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -38,7 +52,6 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    // Inicia sincronização automática quando a conexão for restaurada
     LocalStorageService.instancia.iniciarSincronizacaoAutomatica();
   }
 
@@ -48,13 +61,12 @@ class _MyAppState extends State<MyApp> {
       title: 'Academia AndSport',
       debugShowCheckedModeBanner: false,
 
-      // Temas com suporte automático ao modo escuro do sistema
+      // Troca automática de tema claro/escuro conforme o sistema
       theme: AppTheme.temaClaro,
       darkTheme: AppTheme.temaEscuro,
       themeMode: ThemeMode.system,
 
-      // Redireciona para onboarding na primeira abertura
-      initialRoute: widget.onboardingConcluido ? '/login' : '/onboarding',
+      initialRoute: widget.rotaInicial,
 
       routes: {
         '/onboarding': (context) => const OnboardingScreen(),

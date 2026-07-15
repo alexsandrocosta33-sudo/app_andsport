@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../login_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_text_styles.dart';
 
-/// Tela de onboarding exibida apenas na primeira abertura do app.
-/// Ao concluir, salva 'onboarding_concluido: true' nas SharedPreferences.
+/// Tela de onboarding — exibida apenas para alunos na primeira sessão.
+/// Admin e professor nunca chegam aqui (lógica no NavigationService).
+///
+/// Ao concluir:
+///   • Salva 'onboarding_concluido_{uid}' no SharedPreferences (device)
+///   • Salva 'onboardingConcluido: true' e 'objetivoPrincipal' no Firestore (cross-device)
+///   • Navega para '/home' (o usuário já está autenticado neste ponto)
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -18,6 +24,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _pageController = PageController();
   int _paginaAtual = 0;
   String? _objetivoSelecionado;
+  bool _salvando = false;
 
   static const _objetivos = [
     'Emagrecer',
@@ -27,6 +34,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   ];
 
   Future<void> _concluirOnboarding() async {
+    // Na última página exige seleção de objetivo
     if (_paginaAtual == 3 && _objetivoSelecionado == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -37,16 +45,44 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       return;
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('onboarding_concluido', true);
-    if (_objetivoSelecionado != null) {
-      await prefs.setString('objetivo_selecionado', _objetivoSelecionado!);
+    setState(() => _salvando = true);
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+
+      // 1 — SharedPreferences com chave user-specific (evita conflito entre contas)
+      final prefs = await SharedPreferences.getInstance();
+      if (user != null) {
+        await prefs.setBool('onboarding_concluido_${user.uid}', true);
+      }
+      // Compatibilidade: mantém chave global para versões anteriores
+      await prefs.setBool('onboarding_concluido', true);
+
+      // 2 — Persiste no Firestore para sincronização entre dispositivos
+      if (user != null) {
+        await FirebaseFirestore.instance
+            .collection('usuarios')
+            .doc(user.uid)
+            .set(
+              {
+                'onboardingConcluido': true,
+                if (_objetivoSelecionado != null)
+                  'objetivoPrincipal': _objetivoSelecionado,
+              },
+              SetOptions(merge: true), // não sobrescreve outros campos
+            );
+      }
+    } catch (e) {
+      debugPrint('[Onboarding] Erro ao salvar: $e');
+      // Não bloqueia a navegação — o usuário não deve ficar preso na tela
+    } finally {
+      if (mounted) setState(() => _salvando = false);
     }
 
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-    );
+
+    // Usuário já está logado neste ponto → vai direto para o painel
+    Navigator.of(context).pushReplacementNamed('/home');
   }
 
   void _avancar() {
@@ -73,12 +109,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Botão pular (visível nas primeiras 3 páginas)
+            // Botão pular — visível nas páginas 0, 1, 2
             Align(
               alignment: Alignment.topRight,
               child: Padding(
                 padding: const EdgeInsets.only(
-                    right: AppSpacing.md, top: AppSpacing.sm),
+                  right: AppSpacing.md,
+                  top: AppSpacing.sm,
+                ),
                 child: TextButton(
                   onPressed: _paginaAtual < 3 ? _concluirOnboarding : null,
                   child: Text(
@@ -89,7 +127,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
 
-            // Páginas de conteúdo
+            // Conteúdo das páginas
             Expanded(
               child: PageView(
                 controller: _pageController,
@@ -147,14 +185,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
             // Botão avançar / concluir
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
               child: SizedBox(
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: _avancar,
-                  child: Text(_paginaAtual < 3 ? 'Próximo' : 'Começar agora'),
+                  onPressed: _salvando ? null : _avancar,
+                  child: _salvando
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : Text(_paginaAtual < 3 ? 'Próximo' : 'Começar agora'),
                 ),
               ),
             ),
@@ -253,8 +299,7 @@ class _PaginaObjetivo extends StatelessWidget {
           ...objetivos.map((obj) {
             final selecionado = objetivoSelecionado == obj;
             return Padding(
-              padding:
-                  const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
               child: GestureDetector(
                 onTap: () => onSelecionado(obj),
                 child: AnimatedContainer(
@@ -268,8 +313,7 @@ class _PaginaObjetivo extends StatelessWidget {
                     color: selecionado
                         ? AppColors.acento
                         : Colors.white.withOpacity(0.08),
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.radiusMd),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                     border: Border.all(
                       color: selecionado
                           ? AppColors.acento
@@ -281,9 +325,7 @@ class _PaginaObjetivo extends StatelessWidget {
                     children: [
                       Icon(
                         _icones[obj] ?? Icons.star,
-                        color: selecionado
-                            ? Colors.white
-                            : AppColors.acento,
+                        color: selecionado ? Colors.white : AppColors.acento,
                         size: 22,
                       ),
                       const SizedBox(width: AppSpacing.md),
@@ -293,8 +335,11 @@ class _PaginaObjetivo extends StatelessWidget {
                       ),
                       const Spacer(),
                       if (selecionado)
-                        const Icon(Icons.check_circle_rounded,
-                            color: Colors.white, size: 20),
+                        const Icon(
+                          Icons.check_circle_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                     ],
                   ),
                 ),

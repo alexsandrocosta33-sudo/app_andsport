@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/auth_service.dart';
+import '../services/navigation_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,9 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     _emailController.addListener(() {
-      if (!_isLogin) {
-        setState(() {});
-      }
+      if (!_isLogin) setState(() {});
     });
   }
 
@@ -37,9 +37,8 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _enviarFormulario() async {
+  Future<void> _enviarFormulario() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _isLoading = true);
 
     try {
@@ -48,46 +47,66 @@ class _LoginScreenState extends State<LoginScreen> {
           _emailController.text,
           _senhaController.text,
         );
-        _mostrarMensagem("Login realizado com sucesso!", correto: true);
-        if (mounted) Navigator.of(context).pushReplacementNamed('/home');
+        await _navegarParaRotaCorreta();
       } else {
-        final user = await _authService.cadastrarComEmailESenha(
-          _emailController.text,
-          _senhaController.text,
-        );
-
-        if (user != null) {
-          final eProfessor = _emailController.text
-              .trim()
-              .toLowerCase()
-              .contains('admin');
-
-          await FirebaseFirestore.instance
-              .collection('usuarios')
-              .doc(user.uid)
-              .set({
-                'nome': _nomeController.text.trim().isEmpty
-                    ? 'Usuário Novo'
-                    : _nomeController.text.trim(),
-                'email': _emailController.text.trim(),
-                'eProfessor': eProfessor,
-                'dataCadastro': FieldValue.serverTimestamp(),
-              });
-        }
-
-        _mostrarMensagem("Conta criada com sucesso!", correto: true);
-        if (mounted) Navigator.of(context).pushReplacementNamed('/home');
+        await _cadastrarNovoUsuario();
       }
     } catch (e) {
       _mostrarMensagem(
-        "Erro: ${e.toString().replaceAll(RegExp(r'\[.*\]'), '')}",
+        'Erro: ${e.toString().replaceAll(RegExp(r'\[.*\]'), '')}',
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// Após login bem-sucedido, consulta o perfil e navega para a rota correta.
+  /// Admin/professor → /home direto.
+  /// Aluno sem onboarding → /onboarding.
+  /// Aluno com onboarding → /home.
+  Future<void> _navegarParaRotaCorreta() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      _mostrarMensagem('Não foi possível identificar o usuário. Tente novamente.');
+      return;
+    }
+
+    final rota = await NavigationService.definirRotaInicialUsuario(user);
+
+    if (!mounted) return;
+    _mostrarMensagem('Login realizado com sucesso!', correto: true);
+    Navigator.of(context).pushReplacementNamed(rota);
+  }
+
+  Future<void> _cadastrarNovoUsuario() async {
+    final user = await _authService.cadastrarComEmailESenha(
+      _emailController.text,
+      _senhaController.text,
+    );
+
+    if (user != null) {
+      // Novos usuários cadastrados pela tela de login são sempre alunos.
+      // Professores e admins são criados pelo painel administrativo.
+      await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(user.uid)
+          .set({
+            'nome': _nomeController.text.trim().isEmpty
+                ? 'Usuário Novo'
+                : _nomeController.text.trim(),
+            'email': _emailController.text.trim().toLowerCase(),
+            'cargo': 'aluno',
+            'statusPagamento': 'Pendente',
+            'iaStatusAssinatura': 'NaoAtivado',
+            'dataCadastro': FieldValue.serverTimestamp(),
+          });
+
+      await _navegarParaRotaCorreta();
     }
   }
 
   void _mostrarMensagem(String texto, {bool correto = false}) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(texto),
@@ -98,15 +117,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    String textoBotao = _isLogin
+    final textoBotao = _isLogin
         ? 'Entrar no Painel'
         : (_emailController.text.contains('admin')
-              ? 'Registrar Professor'
-              : 'Cadastrar Usuário');
+            ? 'Registrar Professor'
+            : 'Cadastrar Usuário');
 
     return Scaffold(
       body: Container(
-        // NOVA PALETA: Fundo com degradê do Cinza Escuro Quase Preto para o Preto Puro
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [Color(0xFF1C1C1C), Colors.black],
@@ -137,7 +155,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // BRASÃO DA ACADEMIA COM CONTORNO DOURADO
+                    // Logo
                     Center(
                       child: Container(
                         width: 140,
@@ -157,20 +175,17 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Image.asset(
                             'assets/logo.jpg',
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Icon(
-                                Icons.fitness_center,
-                                size: 60,
-                                color: Colors.amber,
-                              );
-                            },
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.fitness_center,
+                              size: 60,
+                              color: Colors.amber,
+                            ),
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(height: 16),
 
-                    // TÍTULO EM PRETO COM ESTILO MARCANTE
                     const Text(
                       'AndSport',
                       textAlign: TextAlign.center,
@@ -183,7 +198,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 4),
 
-                    // FRASE EM CINZA ESCURO
                     const Text(
                       'A sua saúde começa aqui',
                       textAlign: TextAlign.center,
@@ -203,14 +217,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           labelText: 'Nome Completo',
                           border: OutlineInputBorder(),
                           focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(
-                              color: Colors.amber,
-                              width: 2,
-                            ),
+                            borderSide: BorderSide(color: Colors.amber, width: 2),
                           ),
                           prefixIcon: Icon(Icons.person),
                         ),
-                        validator: (value) => value == null || value.isEmpty
+                        validator: (v) => v == null || v.isEmpty
                             ? 'Insira seu nome completo'
                             : null,
                       ),
@@ -228,8 +239,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         prefixIcon: Icon(Icons.email),
                       ),
-                      validator: (value) =>
-                          value == null || !value.contains('@')
+                      validator: (v) =>
+                          v == null || !v.contains('@')
                           ? 'Insira um e-mail válido'
                           : null,
                     ),
@@ -246,13 +257,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         prefixIcon: Icon(Icons.lock),
                       ),
-                      validator: (value) => value == null || value.length < 6
+                      validator: (v) => v == null || v.length < 6
                           ? 'A senha deve ter pelo menos 6 caracteres'
                           : null,
                     ),
                     const SizedBox(height: 24),
 
-                    // BOTÃO PRINCIPAL EM PRETO COM TEXTO AMARELO DOURADO
                     ElevatedButton(
                       onPressed: _isLoading ? null : _enviarFormulario,
                       style: ElevatedButton.styleFrom(
@@ -284,12 +294,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // TEXTO DE ALTERNAR EM PRETO
                     TextButton(
                       onPressed: () => setState(() => _isLogin = !_isLogin),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.black87,
-                      ),
+                      style: TextButton.styleFrom(foregroundColor: Colors.black87),
                       child: Text(
                         _isLogin
                             ? 'Não tem uma conta? Cadastre-se'
